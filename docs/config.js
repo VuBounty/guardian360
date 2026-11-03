@@ -1,5 +1,5 @@
 /* GUARDIAN 360: no API keys, secrets, or RPC credentials belong in this file. */
-window.GUARDIAN_API_URL = window.GUARDIAN_API_URL || '';
+window.GUARDIAN_API_URL = ['localhost','127.0.0.1'].includes(location.hostname) ? '' : 'https://guardian360-vubounty-readonly.onrender.com';
 window.GUARDIAN_PUBLIC_PREVIEW = !['localhost','127.0.0.1'].includes(location.hostname) && !window.GUARDIAN_API_URL;
 /* Remain false until testnet E2E and independent security assessment are complete. */
 window.GUARDIAN_ENABLE_REVOKE_TRANSACTIONS = false; // SERVER ALSO EXCLUDES ALL REVOKE ROUTES
