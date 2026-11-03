@@ -15,7 +15,7 @@ services:
       - key: CORS_ORIGINS
         value: https://vubounty.github.io
       - key: GUARDIAN_PUBLIC_ENABLE_SCAN
-        value: "false"
+        value: "true"
       - key: GUARDIAN_PUBLIC_MAX_SCANS_PER_MINUTE
         value: "8"
       - key: MAX_TOKEN_PAGES
