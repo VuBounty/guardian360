@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: guardian360-vubounty-readonly
+    runtime: python
+    plan: free
+    rootDir: backend
+    branch: main
+    autoDeployTrigger: off
+    buildCommand: pip install -r requirements-public.txt
+    startCommand: uvicorn public_api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.11
+      - key: CORS_ORIGINS
+        value: https://vubounty.github.io
+      - key: GUARDIAN_PUBLIC_ENABLE_SCAN
+        value: "false"
+      - key: GUARDIAN_PUBLIC_MAX_SCANS_PER_MINUTE
+        value: "8"
+      - key: MAX_TOKEN_PAGES
+        value: "1"
+      - key: MAX_TX_PAGES
+        value: "1"
+      - key: APPROVAL_LOG_LOOKBACK_BLOCKS
+        value: "1000"
