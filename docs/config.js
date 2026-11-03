@@ -22,3 +22,16 @@ if (!['localhost','127.0.0.1'].includes(location.hostname)) {
     const admin=document.querySelector('a[href="admin.html"]');if(admin)admin.hidden=true;
   });
 }
+
+// GUARDIAN_PUBLIC_LIVE_UI_V242
+// Display public beta status without enabling wallet signing or analytics.
+if (!window.GUARDIAN_PUBLIC_PREVIEW && !['localhost','127.0.0.1'].includes(location.hostname)) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const banner=document.querySelector('.beta-banner');
+    if (banner) banner.innerHTML='<strong>⚠ PUBLIC READ-ONLY BETA — NOT AUDITED</strong><span>Live blockchain scans are available. Token and approval coverage can be incomplete. Wallet connections and Revoke transactions are disabled.</span>';
+    const tag=document.querySelector('.brandtag');
+    if (tag) tag.textContent='WALLET SECURITY OPERATIONS / V2.4.2 · PUBLIC BETA';
+    const badge=document.querySelector('.testtag');
+    if (badge) badge.textContent='◉ PUBLIC BETA';
+  });
+}
