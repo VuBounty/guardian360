@@ -1,0 +1,23 @@
+__pycache__/
+.pytest_cache/
+.venv/
+.env
+.env.*
+!.env.example
+*.pyc
+.DS_Store
+
+# Local QA results can contain wallet addresses and on-chain traces; never publish automatically.
+qa/bsc-live-results*.json
+qa/*-raw-scan.json
+# Screenshots are synthetic fixtures, not live scan receipts.
+qa/screenshots-v2.3/
+qa/frontend_smoke_results.json
+backend/data/
+.local/
+**/__pycache__/
+
+# Final local install / QA are not source artifacts
+.local/
+backend/.venv/
+qa/local-output/
