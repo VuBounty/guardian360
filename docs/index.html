@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#050c08">
 <meta name="description" content="GUARDIAN 360 — read-only, evidence-first blockchain wallet security console. No wallet connection required for scanning.">
-<title>GUARDIAN 360 — LOCAL BETA · NOT AUDITED · V2.4.2</title>
-<link rel="stylesheet" href="styles.css?v=242">
-<script src="config.js?v=242-public-215e3b8" defer></script>
-<script src="app.js?v=242-public-215e3b8" defer></script>
-<script src="revoke.js?v=242" defer></script>
-<script src="analytics.js?v=242" defer></script>
-<script src="readability.js?v=242" defer></script>
+<title>GUARDIAN 360 — V2.5 PUBLIC READ-ONLY BETA · NOT AUDITED</title>
+<link rel="stylesheet" href="styles.css?v=250final">
+<script src="config.js?v=250final" defer></script>
+<script src="app.js?v=250final" defer></script>
+<script src="revoke.js?v=250final" defer></script>
+<script src="analytics.js?v=250final" defer></script>
+<script src="readability.js?v=250final" defer></script>
 </head>
 <body>
 <div class="topline" aria-hidden="true"></div>
@@ -23,14 +23,14 @@
 <button type="button" id="closeTranslatePanel" class="button button-small button-quiet">CLOSE</button>
 </div>
 <header class="wrap" id="top"><nav aria-label="Main navigation">
-  <div class="brand"><div class="mark" aria-hidden="true">G<span>360</span></div><div><div class="brandname">GUARDIAN<span>_360</span></div><div class="brandtag">WALLET SECURITY OPERATIONS / V2.4.2 · LOCAL BETA</div></div></div>
-  <div class="nav-right"><button type="button" id="fontToggle" class="button button-small button-quiet accessibility-toggle" aria-label="Increase text size" title="Increase text size">A+</button><button type="button" id="translateHelp" class="button button-small button-quiet accessibility-toggle" aria-label="Translate this page" title="Language / Translate page">🌐 LANGUAGE</button><span class="indicator"><span id="apiLed" class="led off"></span><span id="apiStatus">CHECKING ENGINE</span></span><span class="indicator"><span class="led"></span>SCAN READ ONLY</span><span class="testtag">◉ LOCAL BETA</span><span class="audit-badge" title="No independent security audit completed">NOT AUDITED</span></div>
+  <div class="brand"><div class="mark" aria-hidden="true">G<span>360</span></div><div><div class="brandname">GUARDIAN<span>_360</span></div><div class="brandtag">WALLET SECURITY OPERATIONS / V2.5 · PUBLIC READ-ONLY BETA</div></div></div>
+  <div class="nav-right"><button type="button" id="fontToggle" class="button button-small button-quiet accessibility-toggle" aria-label="Increase text size" title="Increase text size">A+</button><button type="button" id="translateHelp" class="button button-small button-quiet accessibility-toggle" aria-label="Translate this page" title="Language / Translate page">🌐 LANGUAGE</button><span class="indicator"><span id="apiLed" class="led off"></span><span id="apiStatus">CHECKING ENGINE</span></span><span class="indicator"><span class="led"></span>SCAN READ ONLY</span><span class="testtag">◉ PUBLIC BETA</span><span class="audit-badge" title="No independent security audit completed">NOT AUDITED</span></div>
 </nav></header>
-<section class="wrap beta-banner" role="note" aria-label="Beta security warning"><strong>⚠ PUBLIC PREVIEW / SECURITY AUDIT PENDING</strong><span>Read-only local beta. No real-wallet revoke has been verified end-to-end; transaction sending is disabled in this release.</span></section>
+<section class="wrap beta-banner" role="note" aria-label="Beta security warning"><strong>⚠ PUBLIC PREVIEW / SECURITY AUDIT PENDING</strong><span>Public read-only beta. No real-wallet revoke has been verified end-to-end; transaction sending is disabled in this release.</span></section>
 <main class="wrap" id="mainContent">
 <section class="hero" aria-label="Introduction">
   <div><div class="eyebrow">SYSTEM / FORENSIC WORKSTATION / 001</div><h1>NO TRUST.<br><em>VERIFY EVERYTHING.</em></h1><p>Audit on-chain wallet permissions, exposure and evidence quality. Never claim a wallet is safe when coverage is incomplete.</p></div>
-  <div class="hero-code"><div>SECURITY MODE <strong>DEFAULT_READ_ONLY</strong></div><div>NETWORK SCOPE <strong>USER_SELECTED</strong></div><div>WALLET CONNECT <strong>EXPLICIT_OPT_IN_ONLY</strong></div><div>TX SIGNING <strong>EXPLICIT_OPT_IN_ONLY</strong></div></div>
+  <div class="hero-code"><div>SECURITY MODE <strong>DEFAULT_READ_ONLY</strong></div><div>NETWORK SCOPE <strong>USER_SELECTED</strong></div><div>WALLET CONNECT <strong>NOT_REQUIRED</strong></div><div>TX SIGNING <strong>DISABLED_IN_PUBLIC_RELEASE</strong></div></div>
 </section>
 <form id="scanForm" class="panel command" novalidate>
   <div class="panelhead"><span class="paneltitle">COMMAND LINE / SCAN CONFIGURATION</span><span class="micro">NO SEED PHRASE · NO PRIVATE KEY</span></div>
@@ -69,7 +69,7 @@
     </section>
     <aside class="aside">
       <section class="panel aside-panel"><div class="eyebrow">[ SYSTEM TRACE / LIVE RESPONSE ]</div><div id="auditLog" class="terminal" aria-live="polite"></div><div class="separate"></div><p class="micro">Browser-side status and scan-scope log; not a trace of individual RPC calls.</p></section>
-      <section class="panel aside-panel"><div class="eyebrow">SECURITY GUARANTEE / SCOPE</div><div class="separate"></div><div class="aboutline"><span>PRIVATE KEY ACCESS</span><b>NONE</b></div><div class="aboutline"><span>WALLET CONNECTION</span><b>ON REQUEST ONLY</b></div><div class="aboutline"><span>TX SIGNATURE</span><b>ON REQUEST ONLY</b></div><div class="aboutline"><span>FULL APPROVAL HISTORY</span><b class="warning-text">NOT GUARANTEED</b></div><div class="aboutline"><span>SAFETY CERTIFICATE</span><b class="danger-text">NOT ISSUED</b></div></section>
+      <section class="panel aside-panel"><div class="eyebrow">SECURITY CONTROLS / LIMITATIONS</div><div class="separate"></div><div class="aboutline"><span>PRIVATE KEY ACCESS</span><b>NONE</b></div><div class="aboutline"><span>WALLET CONNECTION</span><b>NONE DURING SCAN</b></div><div class="aboutline"><span>TX SIGNATURE</span><b>DISABLED</b></div><div class="aboutline"><span>FULL APPROVAL HISTORY</span><b class="warning-text">NOT GUARANTEED</b></div><div class="aboutline"><span>SAFETY CERTIFICATE</span><b class="danger-text">NOT ISSUED</b></div></section>
       <section class="panel aside-panel"><div class="eyebrow">EXTERNAL BENCHMARK</div><div class="separate"></div><div id="referenceLinks" class="benchmark-links"></div><p class="micro">Open independent benchmarks using a public address; no wallet connection required.</p></section>
     </aside>
   </div>
@@ -91,7 +91,7 @@
   </div>
 </div>
 <footer class="wrap summaryfoot" aria-label="Legal and technical footer">
- <span class="footer-left">GUARDIAN_360 · TERMINAL FRONTEND V2.4.2 · BACKEND ENGINE V1.1.2 · SOURCE RELEASE</span>
+ <span class="footer-left">GUARDIAN_360 · TERMINAL FRONTEND V2.5 · BACKEND ENGINE V2.5 · SOURCE RELEASE</span>
  <span class="footer-copyright" translate="no">© 2026 @SpaceAIFinance. All rights reserved.</span>
  <span class="footer-right">READ ONLY / EVIDENCE FIRST / NEVER OVERCLAIM</span>
 </footer>
