@@ -18,11 +18,15 @@ RECOGNIZED_TOKENS = {
         '0xdac17f958d2ee523a2206206994597c13d831ec7': 'USDT',
         '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'USDC',
         '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': 'WETH',
+        '0xbb0e17ef65f82ab018d8edd776e8dd940327b28b': 'AXS',
     },
     'bsc': {
         '0x55d398326f99059ff775485246999027b3197955': 'USDT',
         '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d': 'USDC',
         '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': 'WBNB',
+        '0x715d400f88c167884bbcc41c5fea407ed4d2f8a0': 'AXS',
+        '0x4b0f1812e5df2a09796481ff14017e6005508003': 'TWT',
+        '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82': 'CAKE',
     },
     'base': {
         '0x833589fc d6edb6e08f4c7c32d4f71b54bda02913'.replace(' ', ''): 'USDC',
@@ -34,7 +38,7 @@ RECOGNIZED_TOKENS = {
     },
 }
 NATIVE_SYMBOLS = {'bsc': 'BNB', 'ethereum': 'ETH', 'base': 'ETH', 'arbitrum': 'ETH'}
-PROTECTED_SYMBOLS = {'ETH', 'BNB', 'USDT', 'USDC', 'WETH', 'WBNB'}
+PROTECTED_SYMBOLS = {'ETH', 'BNB', 'USDT', 'USDC', 'WETH', 'WBNB', 'AXS', 'TWT', 'CAKE'}
 # This threshold is deliberately heuristic: it flags an absurd token quantity for
 # investigation but is not proof of malicious behavior.
 REVIEW_BALANCE_THRESHOLD = Decimal('1e18')
@@ -97,10 +101,13 @@ def classify_token(token: dict, chain: str) -> dict:
         reasons.append('Extremely large token quantity; may be spam/airdrop dust; not a USD value')
     if recognized_symbol is not None and symbol != recognized_symbol:
         reasons.append('Returned token symbol differs from recognized contract metadata')
+    verification = t.get('balance_verification')
+    if verification is not None and verification != 'verified':
+        reasons.append('Live token balance or decimals not fully verified: ' + str(verification)[:70])
     t['review_reasons'] = reasons
     t['classification'] = 'review' if reasons else ('recognized_contract' if recognized_symbol else 'unverified')
     t['contract_recognized'] = recognized_symbol is not None
-    t['trusted_usd_eligible'] = bool(recognized_symbol is not None and not reasons and to_decimal(t.get('usd_value')) is not None and to_decimal(t.get('usd_value')) >= 0)
+    t['trusted_usd_eligible'] = bool(recognized_symbol is not None and not reasons and (t.get('balance_verification') in (None, 'verified')) and (t.get('price_source') is None or t.get('price_source') in ('defillama_by_chain_and_contract', 'coingecko_by_chain_and_contract')) and to_decimal(t.get('usd_value')) is not None and to_decimal(t.get('usd_value')) >= 0)
     t['display_balance'] = concise_quantity(t.get('balance'))
     t['source_type'] = 'token_contract'  # never merge with native coin balance
     return t
@@ -166,31 +173,68 @@ def evaluate_coverage(chain_report: dict) -> dict:
 
 
 def summarize_forensic(chains: list[dict]) -> dict:
+    """Partial prices for SCANNED networks only, using Decimal with no float math.
+
+    Distinct chain keys prevent the same network being silently counted twice.
+    A missing/failed price stays None; it never becomes an artificial $0.
+    Token identity is (chain, contract), not symbol.
+    """
     recognized_usd = Decimal(0)
     unverified_usd = Decimal(0)
     recognized_entries = 0
     flagged = 0
     missing_native_price = 0
-    for chain in chains:
+    by_chain: dict[str, dict] = {}
+    for index, chain in enumerate(chains):
+        key = str(chain.get('chain') or f'unspecified_{index}')
+        if key in by_chain:
+            raise ValueError('Duplicate chain in partial-valuation summary')
+        subtotal = Decimal(0)
+        count = 0
+        unpriced = 0
         native = to_decimal(chain.get('native_usd'))
-        if native is not None and native >= 0:
-            recognized_usd += native
-            recognized_entries += 1
-        elif to_decimal(chain.get('native_balance')) not in (None, Decimal(0)):
+        # A verified zero native balance adds no priced holding. In particular,
+        # it must not disguise an unpriced positive ERC-20 as a $0 wallet.
+        native_balance = to_decimal(chain.get('native_balance'))
+        if native is not None and native >= 0 and (native > 0 or (native_balance is not None and native_balance > 0)):
+            subtotal += native
+            count += 1
+        elif native_balance not in (None, Decimal(0)):
             missing_native_price += 1
+            unpriced += 1
+        seen_contracts: set[str] = set()
         for token in chain.get('tokens', []):
+            contract = str(token.get('contract') or '').lower()
+            if contract and contract in seen_contracts:
+                # Duplicate indexer entries are never double-counted.
+                continue
+            if contract:
+                seen_contracts.add(contract)
             val = to_decimal(token.get('usd_value'))
             if token.get('classification') == 'review':
                 flagged += 1
             if val is None or val < 0:
+                if to_decimal(token.get('balance')) not in (None, Decimal(0)):
+                    unpriced += 1
                 continue
             if token.get('trusted_usd_eligible'):
-                recognized_usd += val
-                recognized_entries += 1
+                subtotal += val
+                count += 1
             else:
                 unverified_usd += val
+                unpriced += 1
+        by_chain[key] = {
+            'usd_priced_partial': format(subtotal, 'f') if count else None,
+            'priced_entries': count,
+            'unpriced_or_excluded_assets': unpriced,
+            'scope': 'selected_chain_only; may omit undiscovered assets',
+        }
+        if count:
+            recognized_usd += subtotal
+            recognized_entries += count
     return {
         'recognized_usd_partial': format(recognized_usd, 'f') if recognized_entries else None,
+        'priced_usd_by_chain': by_chain,
         'excluded_unverified_usd_quotes': format(unverified_usd, 'f'),
         'token_review_count': flagged,
         'missing_native_usd_chains': missing_native_price,

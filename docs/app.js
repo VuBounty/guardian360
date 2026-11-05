@@ -59,7 +59,33 @@ document.addEventListener('pointerdown',e=>{if(!e.target.closest('#networkWrap')
 document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});
 function log(message,type=''){state.scanLog.push({t:new Date().toLocaleTimeString('en-GB',{hour12:false}),message,type});state.scanLog=state.scanLog.slice(-15);$id('auditLog').innerHTML=state.scanLog.map(x=>`<div><span class="time">[${h(x.t)}]</span> <span class="${h(x.type)}">${h(x.message)}</span></div>`).join('');}
 function setBusy(yes){state.busy=yes;$id('busyPanel').hidden=!yes;$id('scanButtonText').textContent=yes?'⌛ SCANNING BLOCKCHAIN…':'▶ RUN SECURITY SCAN';updateChosen();}
-function usdPartial(chains){let sum=0,cnt=0;for(const c of chains){if(c.native_usd!=null){const n=Number(c.native_usd);if(Number.isFinite(n)&&n>=0&&n<=1e13){sum+=n;cnt++;}}for(const t of(c.tokens||[])){if(t.trusted_usd_eligible&&t.usd_value!=null){const n=Number(t.usd_value);if(Number.isFinite(n)&&n>=0&&n<=1e13){sum+=n;cnt++;}}}}return cnt?usdText(sum):'NOT PRICED';}
+// Values supplied by V2.5 backend are exact decimal strings per scanned network.
+// Add as BigInt to avoid JS Number rounding; round ONCE after summing all networks.
+function usdPartial(chains){
+ const vals=[];
+ for(const c of chains){
+  if(Object.prototype.hasOwnProperty.call(c,'priced_usd_partial')){
+   if(c.priced_usd_partial!=null)vals.push(String(c.priced_usd_partial));
+  }else{
+   // Backwards compatibility with read-only V2.4.2 reports.
+   if(c.native_usd!=null)vals.push(String(c.native_usd));
+   for(const t of(c.tokens||[]))if(t.trusted_usd_eligible&&t.usd_value!=null)vals.push(String(t.usd_value));
+  }
+ }
+ if(!vals.length)return 'NOT PRICED';
+ if(vals.some(v=>!/^\d+(?:\.\d+)?$/.test(v)||v.length>170))return 'UNVERIFIED';
+ const places=Math.max(...vals.map(v=>(v.split('.')[1]||'').length));
+ if(places>100)return 'UNVERIFIED';
+ const scale=10n**BigInt(places);
+ const sum=vals.reduce((acc,v)=>{
+  const [w,f='']=v.split('.');return acc+BigInt(w)*scale+BigInt((f+'0'.repeat(places)).slice(0,places)||'0');
+ },0n);
+ if(sum>10000000000000n*scale)return 'UNVERIFIED';
+ const cents=(sum*100n+scale/2n)/scale;
+ if(cents===0n&&sum>0n)return '<$0.01';
+ const dollars=(cents/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
+ return '$'+dollars+'.'+(cents%100n).toString().padStart(2,'0');
+}
 function collect(chains){return {approvals:chains.reduce((n,c)=>n+(c.approvals||[]).length,0),unlimited:chains.reduce((n,c)=>n+(c.approvals||[]).filter(a=>a.unlimited).length,0),tokenReview:chains.reduce((n,c)=>n+(c.tokens||[]).filter(t=>t.classification==='review').length,0),sweeper:chains.filter(c=>c.sweeper?.status==='pattern_detected').length,delegations:chains.filter(c=>c.delegation?.status==='eip7702_delegated').length,known:chains.filter(c=>c.delegation?.identity_status==='known_documented_address').length,rpc:chains.filter(c=>c.native_status==='verified').length,coverageIncomplete:chains.some(c=>c.quality?.status!=='complete'||c.coverage?.approvals_completeness!=='complete'),usd:usdPartial(chains)};}
 function metric(head,val,sub,tone='amber'){return `<article class="panel stat"><div class="fline"></div><div class="heading">${h(head)}</div><div class="value ${tone}">${h(val)}</div><div class="sub">${h(sub)}</div></article>`;}
 function refreshSummary(){const chain=activeChains();const s=collect(chain);const flagged=s.sweeper||s.unlimited||s.tokenReview;
@@ -67,7 +93,7 @@ function refreshSummary(){const chain=activeChains();const s=collect(chain);cons
  $id('stats').innerHTML=metric('EVIDENCE-BASED FINDINGS',risk,flagged?`${flagged} indicators to investigate; not proof of compromise.`:'Insufficient evidence to determine wallet safety.',flagged?'red':'amber')+
  metric('AUDIT COVERAGE',s.coverageIncomplete?'INCOMPLETE':'CHECK SCOPE',`${s.rpc}/${chain.length} RPC accessible · historical permissions may be missing`,'amber')+
  metric('ACTIVE APPROVALS FOUND',String(s.approvals)+' *',`${s.unlimited} unlimited · (*) not a complete permission count`,'green')+
- metric('KNOWN ASSET VALUE',s.usd,'Only priced and recognized holdings are included; not total portfolio value.','blue');
+ metric('PRICED HOLDINGS (PARTIAL)',s.usd,'Sum of displayed scanned networks only; undiscovered or unpriced assets are excluded.','blue');
  $id('warningStrip').innerHTML=`<strong>⚠ NO SAFETY CLEARANCE</strong><span>${s.approvals===0?'0 approvals discovered ≠ 0 approvals exist. ':''}ERC-20, NFT, Permit2 and transaction history may not be fully indexed.</span>`;
  const previous=new Set((state.report.requested_chains||state.report.chains.map(c=>c.chain)));const changed=previous.size!==chosen.size||[...chosen].some(k=>!previous.has(k));$id('warningStrip').dataset.stale=changed?'true':'false';
  $id('workspaceDesc').textContent=`${chain.length} networks displayed / ${state.report.chains.length} networks scanned · ${new Date(state.report.timestamp*1000).toLocaleString('en-GB')}`;
@@ -84,7 +110,7 @@ function buildOverview(chains){let out=heading('NETWORK INTELLIGENCE / LIVE DATA
  if(s.unlimited)out+=row('UNLIMITED ALLOWANCES',`${s.unlimited} unlimited approvals were found in the scanned scope`,label('REVIEW CONTRACT','fail'),label('NO AUTO-REVOKE','warn'));
  out+=explainer('DECISION RULE /', 'Evaluate risk independently from coverage. No detected indicator is not proof of no risk.');return out;}
 function buildAssets(chains){let out=heading('ASSET REGISTER / VERIFIED VS UNVERIFIED','Native assets differ from ERC-20 tokens sharing their ticker. Unpriced tokens are excluded from USD totals.');
- for(const c of chains){out+=`<div class="section-mark">${h(displayName(c.chain))} · #${h(c.chain_id)}</div>`;
+ for(const c of chains){out+=`<div class="section-mark">${h(displayName(c.chain))} · #${h(c.chain_id)} · PRICED ${h(usdPartial([c]))} (PARTIAL)</div>`;
  out+=row(`${c.symbol} / NATIVE ASSET`,c.native_status==='verified'?`Block #${c.block||'—'} · balanceOf not used`:'RPC unavailable',`<span class="amount">${h(numText(c.native_balance,12))} ${h(c.symbol)}</span>`,label(c.native_status==='verified'?'RPC CONFIRMED':'UNVERIFIED',c.native_status==='verified'?'low':'warn'));
  const tokens=(c.tokens||[]);for(const t of tokens.slice(0,100)){
  const flagged=t.classification==='review';const prefix=flagged?'TOKEN NEEDS REVIEW':t.contract_recognized?'RECOGNIZED CONTRACT':'TOKEN CONTRACT';
@@ -144,7 +170,7 @@ $id('resultChain').addEventListener('change',e=>{state.resultChain=e.target.valu
 $id('tabbar').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;state.view=b.dataset.tab;renderTab();});
 $id('scrollTop').addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
 $id('pasteWallet').addEventListener('click',async()=>{try{const text=(await navigator.clipboard.readText()).trim();if(!walletPattern.test(text)){announce('Clipboard does not contain a valid EVM address.');return;}$id('wallet').value=text;announce('');}catch{announce('Unable to read the clipboard; use Command + V.');}});
-$id('exportJSON').addEventListener('click',()=>{if(!state.report)return;const b=new Blob([JSON.stringify(state.report,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`guardian360-v2.4.2-${state.report.address.slice(0,10)}-${state.report.chains.map(c=>c.chain).join('-')}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);});
-async function health(){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),['localhost','127.0.0.1'].includes(location.hostname)?6500:90000);try{const r=await fetch(API+'/api/health',{signal:controller.signal});if(!r.ok)throw Error('API HTTP '+r.status);const data=await r.json();if(!data.ok)throw Error('Health failed');state.backendOK=true;$id('apiLed').classList.remove('off');$id('apiStatus').textContent='ENGINE ONLINE';}catch{state.backendOK=false;$id('apiLed').classList.add('off');$id('apiStatus').textContent='ENGINE OFFLINE';}finally{clearTimeout(timer);}}
+$id('exportJSON').addEventListener('click',()=>{if(!state.report)return;const b=new Blob([JSON.stringify(state.report,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`guardian360-v2.5-${state.report.address.slice(0,10)}-${state.report.chains.map(c=>c.chain).join('-')}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);});
+async function health(){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),6500);try{const r=await fetch(API+'/api/health',{signal:controller.signal});if(!r.ok)throw Error('API HTTP '+r.status);const data=await r.json();if(!data.ok)throw Error('Health failed');state.backendOK=true;$id('apiLed').classList.remove('off');$id('apiStatus').textContent='ENGINE ONLINE';}catch{state.backendOK=false;$id('apiLed').classList.add('off');$id('apiStatus').textContent='ENGINE OFFLINE';}finally{clearTimeout(timer);}}
 updateChosen();drawOptions();health();
 })();

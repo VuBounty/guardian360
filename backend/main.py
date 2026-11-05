@@ -20,6 +20,7 @@ from analytics import router as analytics_router, record_aggregate_scan
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from forensic import classify_token, classify_delegation, evaluate_coverage, summarize_forensic, exact_balance
+from asset_valuation import BSC_CATALOG, ETHEREUM_CATALOG, reconcile_assets, native_usd_quote
 
 ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 APPROVAL_TOPIC = "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
@@ -29,19 +30,13 @@ MAX_UINT256 = 2**256 - 1
 MAX_UINT160 = 2**160 - 1
 # Only well-known contract identities as a fallback. These are NOT a token discovery API.
 KNOWN_TOKENS = {
-    "ethereum": [
-        ("USDT", "0xdAC17F958D2ee523a2206206994597C13D831ec7", 6),
-        ("USDC", "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 6),
-    ],
-    "bsc": [
-        ("USDT", "0x55d398326f99059fF775485246999027B3197955", 18),
-        ("USDC", "0x8ac76a51cc950d9822D68b83fE1Ad97B32CD580d", 18),
-    ],
+    "ethereum": list(ETHEREUM_CATALOG),
+    "bsc": list(BSC_CATALOG),
     "base": [("USDC", "0x833589fCD6EDB6E08f4c7C32D4f71b54bdA02913", 6)],
     "arbitrum": [("USDC", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", 6)],
 }
 CHAINS = {
-    "bsc": dict(name="BNB Smart Chain", id=56, symbol="BNB", rpc="https://bsc-dataseed.binance.org", explorer="https://bscscan.com", indexer="https://blockscout.routescan.io/56/api/v2"),
+    "bsc": dict(name="BNB Smart Chain", id=56, symbol="BNB", rpc="https://bsc-dataseed.bnbchain.org", explorer="https://bscscan.com", indexer="https://blockscout.routescan.io/56/api/v2"),
     "ethereum": dict(name="Ethereum", id=1, symbol="ETH", rpc="https://ethereum-rpc.publicnode.com", explorer="https://etherscan.io", indexer="https://eth.blockscout.com/api/v2"),
     "base": dict(name="Base", id=8453, symbol="ETH", rpc="https://base-rpc.publicnode.com", explorer="https://basescan.org", indexer="https://base.blockscout.com/api/v2"),
     "arbitrum": dict(name="Arbitrum One", id=42161, symbol="ETH", rpc="https://arbitrum-one-rpc.publicnode.com", explorer="https://arbiscan.io", indexer="https://arbitrum.blockscout.com/api/v2"),
@@ -431,10 +426,13 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
     result: dict = {"chain": key, "name": cfg["name"], "chain_id": cfg["id"], "symbol": cfg["symbol"], "native_balance": None, "native_usd": None, "block": None, "native_status": "unverified", "tokens": [], "approvals": [], "sweeper": {"status": "not_checked"}, "delegation": {"status": "not_checked"}, "coverage": {}, "error": None}
     block = None
     try:
-        chain_id, blockhex, nativehex = await asyncio.gather(rpc(client, rpc_url, "eth_chainId", []), rpc(client, rpc_url, "eth_blockNumber", []), rpc(client, rpc_url, "eth_getBalance", [wallet, "latest"]))
+        chain_id, blockhex = await asyncio.gather(
+            rpc(client, rpc_url, "eth_chainId", []), rpc(client, rpc_url, "eth_blockNumber", []))
         if int(chain_id, 16) != cfg["id"]:
             raise ValueError("RPC chain ID mismatch — refusing untrusted data")
         block = int(blockhex, 16)
+        # Native balance and token balances use the SAME per-chain snapshot block.
+        nativehex = await rpc(client, rpc_url, "eth_getBalance", [wallet, hex(block)])
         result.update(block=block, native_status="verified", native_balance=numeric_string(int(nativehex, 16), 18))
     except Exception as exc:
         result["error"] = short_error(exc)
@@ -478,11 +476,18 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
         tx_err = short_error(loaded[1])
     else:
         tx_items, tx_complete = loaded[1]
+    # Indexer /stats native price has no reliable quote timestamp. Store as
+    # indicative evidence only, never silently merge into trusted USD total.
     if not isinstance(loaded[2], Exception) and loaded[2] is not None:
-        native_price = loaded[2]
+        result["coverage"]["indicative_native_price_unverified"] = str(loaded[2])
+    native_quote, native_price_state = await native_usd_quote(client, key)
+    result["coverage"]["native_usd_price"] = native_price_state
+    if native_quote:
         native = as_decimal(result["native_balance"])
         if native is not None:
-            result["native_usd"] = format(native * native_price, "f")
+            result["native_usd"] = format(native * native_quote["price"], "f")
+            result["native_price_source"] = "defillama_coingecko_id"
+            result["native_price_timestamp"] = native_quote["timestamp"]
     result["coverage"]["token_index"] = "unavailable: " + token_err if token_err else ("indexer_pages_complete" if tok_complete else f"partial_first_{MAX_TOKEN_PAGES}_pages")
     result["coverage"]["transactions"] = "unavailable: " + tx_err if tx_err else ("recent_history_complete" if tx_complete else f"partial_first_{MAX_TX_PAGES}_pages")
     result["coverage"]["usd_prices"] = "indicative_indexer_quotes" if not isinstance(loaded[2], Exception) else "unavailable"
@@ -502,10 +507,18 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
             result["coverage"]["moralis_token_index"] = "unavailable: " + short_error(exc)
     else:
         result["coverage"]["moralis_token_index"] = "not_configured"
-    seen = {t["contract"].lower() for t in tokens}
-    fallback, fallback_errors = await balance_fallback(client, rpc_url, wallet, key, seen, cfg["explorer"])
-    result["tokens"] = [classify_token(t, key) for t in tokens + fallback]
-    result["coverage"]["known_token_rpc"] = "partial: " + "; ".join(fallback_errors[:1]) if fallback_errors else "queried_known_token_contracts"
+    # V2.5: every candidate balance is re-read directly onchain at one block.
+    # Indexer USD quotes never enter KNOWN ASSET VALUE without onchain balance,
+    # decimals and a fresh contract-address-specific price quote.
+    verified_tokens, asset_coverage = await reconcile_assets(
+        client, rpc, rpc_url, wallet, key, block, tokens, KNOWN_TOKENS[key], cfg["explorer"])
+    result["tokens"] = [classify_token(t, key) for t in verified_tokens]
+    result["coverage"]["asset_valuation"] = asset_coverage
+    result["coverage"]["known_token_rpc"] = (
+        "bounded_contract_probe" if not asset_coverage["balance_verification_failures"]
+        else "partial_onchain_rpc_probe_failures")
+    result["coverage"]["usd_prices"] = (
+        "fresh_contract_address_quotes_only; " + asset_coverage["price_service"])
 
     candidates = [c for tx in tx_items if (c := candidate_from_tx(tx, wallet))]
     # Permit2 is a widely-used spender. Unlike arbitrary spender discovery, its
@@ -583,7 +596,11 @@ async def scan(request: ScanRequest):
     delegated = sum(c["delegation"].get("status") == "eip7702_delegated" for c in chains)
     unavailable = sum(c["native_status"] != "verified" for c in chains)
     forensic = summarize_forensic(chains)
-    payload = {"address": address, "timestamp": int(time.time()), "version": "2.4.0-beta", "chains": chains, "requested_chains": chosen, "summary": {"usd_known_sum": forensic["recognized_usd_partial"], "usd_unverified_excluded": forensic["excluded_unverified_usd_quotes"], "token_review_count": forensic["token_review_count"], "all_approvals_status": "UNKNOWN_INCOMPLETE", "usd_completeness": "partial_or_unknown", "active_approvals_discovered": approvals, "unlimited_approvals_discovered": unlimited, "sweeper_pattern_chains": flagged, "eip7702_delegation_chains": delegated, "rpc_unavailable_chains": unavailable, "risk_level": "investigate" if flagged else ("review_permissions" if unlimited else ("review_token_integrity" if forensic["token_review_count"] else "not_assessed")), "never_a_safety_clearance": True, "security_clearance": False, "audit_quality": "INCOMPLETE"}, "coverage": {"erc20_balances": "indexer_when_available_plus_known_token_rpc_fallback; not guaranteed complete", "approvals": "recent_wallet_transactions_and_bounded_events_only; older or unindexed approvals can be missed", "nft_operator": "recent_transaction_and_bounded_event_candidates; NFT holdings not comprehensive", "permit2": "partial recent onchain spender event discovery; older approvals and unsubmitted signatures may be missed", "sweeper": "heuristic on recent native-value top-level transactions only; cannot establish compromised key", "device_spyware": "not_detectable_from_wallet_address", "usd": "partial_indexer_quotes_only; no guarantee of market liquidity"}, "disclaimer": "This is an incomplete read-only security screen. No warnings found DOES NOT mean safe. No keys, wallet connection or transactions requested."}
+    for chain in chains:
+        partial = forensic['priced_usd_by_chain'][chain['chain']]
+        chain['priced_usd_partial'] = partial['usd_priced_partial']
+        chain['priced_assets_count'] = partial['priced_entries']
+    payload = {"address": address, "timestamp": int(time.time()), "version": "2.5.0-public-beta", "chains": chains, "requested_chains": chosen, "summary": {"usd_known_sum": forensic["recognized_usd_partial"], "priced_usd_by_chain": forensic["priced_usd_by_chain"], "valuation_scope": "only_requested_scanned_chains; partial; independent_block_and_price_timestamps", "usd_unverified_excluded": forensic["excluded_unverified_usd_quotes"], "token_review_count": forensic["token_review_count"], "all_approvals_status": "UNKNOWN_INCOMPLETE", "usd_completeness": "partial_or_unknown", "active_approvals_discovered": approvals, "unlimited_approvals_discovered": unlimited, "sweeper_pattern_chains": flagged, "eip7702_delegation_chains": delegated, "rpc_unavailable_chains": unavailable, "risk_level": "investigate" if flagged else ("review_permissions" if unlimited else ("review_token_integrity" if forensic["token_review_count"] else "not_assessed")), "never_a_safety_clearance": True, "security_clearance": False, "audit_quality": "INCOMPLETE"}, "coverage": {"erc20_balances": "bounded_indexer_candidates_plus_curated_rpc_probes_at_block; not guaranteed complete", "approvals": "recent_wallet_transactions_and_bounded_events_only; older or unindexed approvals can be missed", "nft_operator": "recent_transaction_and_bounded_event_candidates; NFT holdings not comprehensive", "permit2": "partial recent onchain spender event discovery; older approvals and unsubmitted signatures may be missed", "sweeper": "heuristic on recent native-value top-level transactions only; cannot establish compromised key", "device_spyware": "not_detectable_from_wallet_address", "usd": "onchain-balance-verified + fresh contract-address quote when available; still partial and not guaranteed liquid"}, "disclaimer": "This is an incomplete read-only security screen. No warnings found DOES NOT mean safe. No keys, wallet connection or transactions requested."}
     record_aggregate_scan()
     return payload
 

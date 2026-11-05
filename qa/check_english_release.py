@@ -7,7 +7,7 @@ revoke=(ROOT/'docs/revoke.js').read_text()
 assert '<html lang="en">' in html
 assert '@SpaceAIFinance. All rights reserved.' in html
 assert 'NOT AUDITED' in html
-assert 'WALLET SECURITY OPERATIONS / V2.4.2' in html
+assert ('WALLET SECURITY OPERATIONS / V2.4.2' in html or 'WALLET SECURITY OPERATIONS / V2.5' in html)
 assert 'GUARDIAN_ENABLE_REVOKE_TRANSACTIONS = false' in config
 assert 'if(window.GUARDIAN_ENABLE_REVOKE_TRANSACTIONS!==true)' in revoke
 assert 'GUARDIAN_PUBLIC_PREVIEW' in config
