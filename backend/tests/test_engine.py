@@ -63,11 +63,18 @@ def test_rpc_and_indexer_mocked_end_to_end(monkeypatch):
                 data=payload['params'][0]['data']
                 if data.startswith('0xdd62ed3e') and data.endswith(g.encode_address(SPENDER)):
                     val=hex(g.MAX_UINT256)
+                elif data.startswith('0x70a08231') and payload['params'][0]['to'].lower() == USDC.lower():
+                    val=hex(1300000)
+                elif data.startswith('0x313ce567') and payload['params'][0]['to'].lower() == USDC.lower():
+                    val=hex(6)
                 else: val='0x0'
             elif method=='eth_getLogs': val=[]
             else: raise AssertionError(method)
             return httpx.Response(200,json={'jsonrpc':'2.0','id':7,'result':val})
         path=request.url.path
+        if 'coins.llama.fi' in request.url.host:
+            import time
+            return httpx.Response(200, json={'coins': {'ethereum:'+USDC.lower(): {'price': 1, 'timestamp': int(time.time()), 'confidence': 0.99}, 'coingecko:ethereum': {'price': 2500, 'timestamp': int(time.time()), 'confidence': 0.99}}})
         if path.endswith('/tokens'):
             if 'ERC-721' in str(request.url): obj={'items':[],'next_page_params':None}
             else: obj={'items':[{'token':{'type':'ERC-20','address_hash':USDC,'decimals':'6','symbol':'USDC','exchange_rate':'1'},'value':'1300000'}],'next_page_params':None}
@@ -82,6 +89,8 @@ def test_rpc_and_indexer_mocked_end_to_end(monkeypatch):
     result=asyncio.run(run())
     assert result['native_status']=='verified' and result['native_balance']=='0.001234'
     assert result['tokens'][0]['usd_value']=='1.3'
+    assert result['tokens'][0]['balance_verification']=='verified'
+    assert result['tokens'][0]['price_source']=='defillama_by_chain_and_contract'
     assert len(result['approvals'])==1
     assert result['approvals'][0]['unlimited'] is True
     assert result['coverage']['approvals_completeness']=='partial_historical_discovery'
