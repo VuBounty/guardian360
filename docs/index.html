@@ -3,18 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#050c08">
+<meta name="theme-color" content="#14121f">
 <meta name="description" content="GUARDIAN 360 — read-only, evidence-first blockchain wallet security console. No wallet connection required for scanning.">
-<title>GUARDIAN 360 — V2.5 PUBLIC READ-ONLY BETA · NOT AUDITED</title>
-<link rel="stylesheet" href="styles.css?v=250final">
-<script src="config.js?v=250final" defer></script>
-<script src="app.js?v=250final" defer></script>
-<script src="revoke.js?v=250final" defer></script>
-<script src="analytics.js?v=250final" defer></script>
-<script src="readability.js?v=250final" defer></script>
+<title>Guardian 360 — Wallet Intelligence · V2.6 Live Read-only</title>
+<link rel="stylesheet" href="styles.css?v=260live">
+<link rel="stylesheet" href="visual_v26.css?v=261live">
+<link rel="stylesheet" href="premium_v26.css?v=262live">
+<script src="config.js?v=260live" defer></script>
+<script src="app.js?v=260live" defer></script>
+<!-- Transaction-capable revoke.js is NEVER loaded in this read-only V2.6 live read-only. -->
+
+<script src="readability.js?v=260live" defer></script>
 </head>
 <body>
 <div class="topline" aria-hidden="true"></div>
+<aside class="g360-sidebar" aria-label="Workspace navigation">
+  <a href="#top" class="side-brand" aria-label="Guardian 360 home"><span class="side-emblem" aria-hidden="true">G<span>◇</span></span><span><strong>Guardian<span>360</span></strong><small>WALLET INTELLIGENCE</small></span></a>
+  <div class="side-group-label">WORKSPACE</div>
+  <nav class="side-nav" aria-label="Workspace sections">
+    <a href="#scanForm" class="side-link" data-side-nav="scan"><span class="side-icon" aria-hidden="true">⌕</span>New security scan</a>
+    <button type="button" class="side-link selected" data-sidebar-tab="assets"><span class="side-icon" aria-hidden="true">▦</span>All assets <span class="side-dot"></span></button>
+    <button type="button" class="side-link" data-sidebar-tab="approvals"><span class="side-icon" aria-hidden="true">◇</span>Permissions</button>
+    <button type="button" class="side-link" data-sidebar-tab="overview"><span class="side-icon" aria-hidden="true">◉</span>Risk summary</button>
+    <button type="button" class="side-link" data-sidebar-tab="evidence"><span class="side-icon" aria-hidden="true">≡</span>Evidence &amp; coverage</button>
+  </nav>
+  <div class="side-group-label">SECURITY CONTROLS</div>
+  <div class="sidebar-note"><span class="note-led"></span><strong>Read-only by design</strong><small>No wallet connection or transaction signing in this public candidate.</small></div>
+  <div class="side-footer">GUARDIAN 360 <span>V2.6</span><small>LIVE READ-ONLY SCANNER</small></div>
+</aside>
 <div id="translatePanel" class="translation-panel" role="dialog" aria-label="Language and translation guidance" hidden>
 <strong>LANGUAGE / TRANSLATION</strong>
 <p>Use your browser’s built-in translation tool to read GUARDIAN 360 in your preferred language.</p>
@@ -23,20 +39,20 @@
 <button type="button" id="closeTranslatePanel" class="button button-small button-quiet">CLOSE</button>
 </div>
 <header class="wrap" id="top"><nav aria-label="Main navigation">
-  <div class="brand"><div class="mark" aria-hidden="true">G<span>360</span></div><div><div class="brandname">GUARDIAN<span>_360</span></div><div class="brandtag">WALLET SECURITY OPERATIONS / V2.5 · PUBLIC READ-ONLY BETA</div></div></div>
-  <div class="nav-right"><button type="button" id="fontToggle" class="button button-small button-quiet accessibility-toggle" aria-label="Increase text size" title="Increase text size">A+</button><button type="button" id="translateHelp" class="button button-small button-quiet accessibility-toggle" aria-label="Translate this page" title="Language / Translate page">🌐 LANGUAGE</button><span class="indicator"><span id="apiLed" class="led off"></span><span id="apiStatus">CHECKING ENGINE</span></span><span class="indicator"><span class="led"></span>SCAN READ ONLY</span><span class="testtag">◉ PUBLIC BETA</span><span class="audit-badge" title="No independent security audit completed">NOT AUDITED</span></div>
+  <div class="brand"><div class="mark" aria-hidden="true">G<span>360</span></div><div><div class="brandname">Guardian<span>360</span></div><div class="brandtag">SECURITY INTELLIGENCE WORKSPACE</div></div></div>
+  <div class="nav-right"><button type="button" id="fontToggle" class="button button-small button-quiet accessibility-toggle" aria-label="Increase text size" title="Increase text size">A+</button><button type="button" id="translateHelp" class="button button-small button-quiet accessibility-toggle" aria-label="Translate this page" title="Language / Translate page">🌐 LANGUAGE</button><span class="indicator"><span id="apiLed" class="led off"></span><span id="apiStatus">CHECKING ENGINE</span></span><span class="indicator"><span class="led"></span>SCAN READ ONLY</span><span class="testtag">READ-ONLY MODE</span></div>
 </nav></header>
-<section class="wrap beta-banner" role="note" aria-label="Beta security warning"><strong>⚠ PUBLIC PREVIEW / SECURITY AUDIT PENDING</strong><span>Public read-only beta. No real-wallet revoke has been verified end-to-end; transaction sending is disabled in this release.</span></section>
+<div class="wrap compact-status" role="note">MULTICHAIN INVENTORY &amp; SECURITY REVIEW <span class="compact-status-right">LIVE DISCOVERY COVERAGE VARIES BY NETWORK</span></div>
 <main class="wrap" id="mainContent">
 <section class="hero" aria-label="Introduction">
-  <div><div class="eyebrow">SYSTEM / FORENSIC WORKSTATION / 001</div><h1>NO TRUST.<br><em>VERIFY EVERYTHING.</em></h1><p>Audit on-chain wallet permissions, exposure and evidence quality. Never claim a wallet is safe when coverage is incomplete.</p></div>
-  <div class="hero-code"><div>SECURITY MODE <strong>DEFAULT_READ_ONLY</strong></div><div>NETWORK SCOPE <strong>USER_SELECTED</strong></div><div>WALLET CONNECT <strong>NOT_REQUIRED</strong></div><div>TX SIGNING <strong>DISABLED_IN_PUBLIC_RELEASE</strong></div></div>
+  <div><div class="eyebrow">WALLET INTELLIGENCE / V2.6</div><h1>Discover your assets.<br><em>Trace the risks.</em></h1><p>Identify assets across selected networks, including suspicious and unpriced tokens. Review permissions and evidence after the asset register.</p></div>
+  <div class="hero-code"><div>SECURITY MODE <strong>DEFAULT_READ_ONLY</strong></div><div>NETWORK SCOPE <strong>USER_SELECTED</strong></div><div>WALLET CONNECT <strong>DISABLED_IN_PUBLIC</strong></div><div>TX SIGNING <strong>DISABLED_IN_PUBLIC</strong></div></div>
 </section>
 <form id="scanForm" class="panel command" novalidate>
-  <div class="panelhead"><span class="paneltitle">COMMAND LINE / SCAN CONFIGURATION</span><span class="micro">NO SEED PHRASE · NO PRIVATE KEY</span></div>
+  <div class="panelhead"><span class="paneltitle">SECURITY SCANNER</span><span class="micro">NO SEED PHRASE · NO PRIVATE KEY</span></div>
   <div class="entryrow">
-    <div class="wallet-control"><label class="fieldlabel" for="wallet">TARGET_WALLET / EVM ADDRESS</label><div class="field"><span class="prompt">&gt;</span><input id="wallet" name="wallet" placeholder="0x... (40 hexadecimal characters)" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="42" aria-describedby="walletHint"><button type="button" class="icon-btn" id="pasteWallet" title="Paste wallet address">PASTE</button></div></div>
-    <div class="network" id="networkWrap"><span class="fieldlabel">NETWORK_SCOPE <span id="selectedCount">(1 SELECTED)</span></span><button type="button" id="networkTrigger" class="network-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="networkMenu"><span class="network-main"><small>◈</small><b id="networkSummary">BNB Smart Chain</b></span><span class="chev">⌄</span></button>
+    <div class="wallet-control"><label class="fieldlabel" for="wallet">WALLET ADDRESS</label><div class="field"><span class="prompt">&gt;</span><input id="wallet" name="wallet" placeholder="0x... (40 hexadecimal characters)" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="42" aria-describedby="walletHint"><button type="button" class="icon-btn" id="pasteWallet" title="Paste wallet address">PASTE</button></div></div>
+    <div class="network" id="networkWrap"><span class="fieldlabel">BLOCKCHAIN NETWORKS <span id="selectedCount">(1 SELECTED)</span></span><button type="button" id="networkTrigger" class="network-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="networkMenu"><span class="network-main"><small>◈</small><b id="networkSummary">BNB Smart Chain</b></span><span class="chev">⌄</span></button>
       <div id="networkMenu" class="network-menu" role="dialog" aria-label="Choose blockchain networks" hidden>
         <div class="menuhead"><span>SELECT NETWORKS</span><span id="optionCount">1/4</span></div>
         <input type="search" id="chainSearch" class="menusearch" placeholder="SEARCH BY NETWORK / CHAIN ID" aria-label="Search blockchains">
@@ -44,36 +60,38 @@
         <div class="menubottom"><button type="button" id="selectAll" class="button button-small button-quiet">ALL</button><button type="button" id="clearChains" class="button button-small button-quiet">CLEAR</button><button type="button" id="applyChains" class="button button-small button-primary">APPLY ✓</button></div>
       </div>
     </div>
-    <div><span class="fieldlabel">AUDIT_COMMAND</span><button type="submit" id="scanButton" class="button button-primary run"><span id="scanButtonText">▶ RUN SECURITY SCAN</span></button></div>
+    <div><span class="fieldlabel">SCAN COMMAND</span><button type="submit" id="scanButton" class="button button-primary run"><span id="scanButtonText">RUN SECURITY SCAN  ↗</span></button></div>
   </div>
   <div id="error" class="error" role="alert" aria-live="assertive"></div>
   <div class="commandfoot"><span><b>ZERO TRUST:</b> public wallet addresses only; MetaMask is not connected during scans</span><span id="scanHint">WAITING FOR INPUT // BSC SELECTED</span></div>
 </form>
 <section id="busyPanel" class="panel busy-panel" hidden role="status" aria-live="polite"><span class="loader" aria-hidden="true"></span><div><strong>LIVE SCAN IN PROGRESS</strong><p>Querying selected networks. Indexers may be incomplete or unavailable.</p></div></section>
-<section id="report" class="report" aria-label="Security audit report" hidden>
-  <div class="bar"><div><div class="eyebrow">AUDIT REPORT <span>//</span> <span id="auditScope">-</span></div><div class="micro report-wallet" id="auditAddress"></div></div><div class="toolbar"><button type="button" class="button button-small button-quiet" id="exportJSON">↓ EXPORT JSON</button><button type="button" class="button button-small button-quiet" id="scrollTop">↑ TOP</button></div></div>
+<section id="report" class="report" aria-label="Wallet scan results" hidden>
+  <div class="bar"><div><div class="eyebrow">YOUR SCAN REPORT <span> / </span> <span id="auditScope">-</span></div><div class="micro report-wallet" id="auditAddress"></div></div><div class="toolbar"><button type="button" class="button button-small button-quiet" id="exportJSON">↓ EXPORT JSON</button><button type="button" class="button button-small button-quiet" id="scrollTop">↑ TOP</button></div></div>
   <div id="stats" class="stats"></div>
-  <div id="warningStrip" class="warning-strip" role="status"></div>
+  <div id="networkCoverage" class="network-strip" aria-label="Network discovery coverage"></div>
   <div class="audit">
     <section class="panel detail">
-      <div class="detailhead"><div><div class="paneltitle">FORENSIC WORKSPACE</div><div class="micro" id="workspaceDesc">No audit available.</div></div><label class="viewfilter" for="resultChain">VIEW CHAIN <select id="resultChain" aria-label="View results by blockchain"></select></label></div>
+      <div class="detailhead"><div><div class="paneltitle">Asset intelligence</div><div class="micro" id="workspaceDesc">No scan completed.</div></div><label class="viewfilter" for="resultChain">VIEW CHAIN <select id="resultChain" aria-label="View results by blockchain"></select></label></div>
       <div class="tabbar" id="tabbar" role="tablist" aria-label="Audit result tabs">
-        <button type="button" class="tab" role="tab" data-tab="overview" aria-selected="true">01 / OVERVIEW</button>
-        <button type="button" class="tab" role="tab" data-tab="assets" aria-selected="false">02 / ASSETS</button>
-        <button type="button" class="tab" role="tab" data-tab="approvals" aria-selected="false">03 / APPROVALS</button>
-        <button type="button" class="tab" role="tab" data-tab="revoke" aria-selected="false">04 / REVOKE</button>
-        <button type="button" class="tab" role="tab" data-tab="delegation" aria-selected="false">05 / DELEGATIONS</button>
-        <button type="button" class="tab" role="tab" data-tab="evidence" aria-selected="false">06 / EVIDENCE</button>
+        <button type="button" class="tab" role="tab" data-tab="assets" aria-selected="true">All assets</button>
+        <button type="button" class="tab" role="tab" data-tab="approvals" aria-selected="false">Permissions</button>
+        <button type="button" class="tab" role="tab" data-tab="overview" aria-selected="false">Risk insights</button>
+        <button type="button" class="tab" role="tab" data-tab="delegation" aria-selected="false">Delegation</button>
+        <button type="button" class="tab" role="tab" data-tab="evidence" aria-selected="false">Data coverage</button>
+        <button type="button" class="tab" role="tab" data-tab="revoke" aria-selected="false">Revoke · locked</button>
       </div>
       <div id="tabcontent" class="tabcontent" role="tabpanel" aria-live="polite"></div>
     </section>
-    <aside class="aside">
+    <details class="audit-technical"><summary>Advanced diagnostics, source trace and independent comparisons</summary><aside class="aside">
       <section class="panel aside-panel"><div class="eyebrow">[ SYSTEM TRACE / LIVE RESPONSE ]</div><div id="auditLog" class="terminal" aria-live="polite"></div><div class="separate"></div><p class="micro">Browser-side status and scan-scope log; not a trace of individual RPC calls.</p></section>
-      <section class="panel aside-panel"><div class="eyebrow">SECURITY CONTROLS / LIMITATIONS</div><div class="separate"></div><div class="aboutline"><span>PRIVATE KEY ACCESS</span><b>NONE</b></div><div class="aboutline"><span>WALLET CONNECTION</span><b>NONE DURING SCAN</b></div><div class="aboutline"><span>TX SIGNATURE</span><b>DISABLED</b></div><div class="aboutline"><span>FULL APPROVAL HISTORY</span><b class="warning-text">NOT GUARANTEED</b></div><div class="aboutline"><span>SAFETY CERTIFICATE</span><b class="danger-text">NOT ISSUED</b></div></section>
+      <section class="panel aside-panel"><div class="eyebrow">SCAN BOUNDARIES / SCOPE</div><div class="separate"></div><div class="aboutline"><span>PRIVATE KEY ACCESS</span><b>NONE</b></div><div class="aboutline"><span>WALLET CONNECTION</span><b>DISABLED</b></div><div class="aboutline"><span>TX SIGNATURE</span><b>DISABLED</b></div><div class="aboutline"><span>FULL APPROVAL HISTORY</span><b class="warning-text">NOT GUARANTEED</b></div><div class="aboutline"><span>SAFETY CERTIFICATE</span><b class="danger-text">NOT ISSUED</b></div></section>
       <section class="panel aside-panel"><div class="eyebrow">EXTERNAL BENCHMARK</div><div class="separate"></div><div id="referenceLinks" class="benchmark-links"></div><p class="micro">Open independent benchmarks using a public address; no wallet connection required.</p></section>
-    </aside>
+    </aside></details>
   </div>
+  <details class="scan-limits"><summary>Scan limitations and important safety notes</summary><div id="warningStrip" class="warning-strip" role="status"></div><p class="micro">Some tokens or old approvals may be omitted when indexer history or RPC data is incomplete. Not finding a token does not prove it is absent.</p></details>
 </section>
+<details class="wrap methodology-disclosure"><summary>Security methodology and independent assurance</summary><p>GUARDIAN 360 provides automated, limited-scope read-only observations. No independent security audit has been completed or certified for this release. There is no wallet safety guarantee. Scan findings are incomplete unless the evidence proves otherwise; never interact with unsolicited tokens or approve a transaction based solely on a ticker.</p><p>An external review, when completed, will be published here with auditor identity, commit hash, scope, date and report link. No audit seal is displayed until independently verifiable.</p></details>
 <section class="panel consent-panel" aria-label="Optional participation analytics">
   <div><div class="eyebrow">TELEMETRY / PRIVACY CONTROL</div><p>Help measure adoption with optional, privacy-preserving analytics. Wallet addresses, transactions and security findings are not sent to participation analytics.</p></div>
   <label class="consent-label"><input type="checkbox" id="analyticsConsent"> I CONSENT TO ANONYMOUS USAGE ANALYTICS</label>
@@ -82,16 +100,8 @@
 </section>
 <section class="afterword panel"><div class="eyebrow">ZERO TRUST / OPERATING PRINCIPLES</div><div class="principles"><div><strong>01 / DETECT</strong><p>Separate verified findings from suspicion.</p></div><div><strong>02 / VERIFY</strong><p>Zero approvals discovered does not prove none exist.</p></div><div><strong>03 / PROTECT</strong><p>No signatures or access to funds during scanning.</p></div></div></section>
 </main>
-<div id="revokeDialog" class="revoke-dialog" role="dialog" aria-modal="true" aria-labelledby="revokeTitle" hidden>
-  <div class="revoke-window panel">
-    <div class="revoke-head"><div class="eyebrow">GUARDIAN_360 / USER-AUTHORIZED PROTECTION</div><h2 id="revokeTitle">VERIFIED REVOKE</h2></div>
-    <div id="revokeDialogInfo" class="revoke-dialog-info"></div>
-    <div id="revokeDialogStatus" class="revoke-status" aria-live="polite"></div>
-    <div class="revoke-actions"><button type="button" id="revokeCancel" class="button button-quiet">CLOSE / ABORT</button><button type="button" id="revokeNext" class="button button-primary">CONNECT & PREFLIGHT</button></div>
-  </div>
-</div>
 <footer class="wrap summaryfoot" aria-label="Legal and technical footer">
- <span class="footer-left">GUARDIAN_360 · TERMINAL FRONTEND V2.5 · BACKEND ENGINE V2.5 · SOURCE RELEASE</span>
+ <span class="footer-left">GUARDIAN_360 · V2.6 RC INTEGRATION · PUBLIC DEPLOYMENT ON HOLD</span>
  <span class="footer-copyright" translate="no">© 2026 @SpaceAIFinance. All rights reserved.</span>
  <span class="footer-right">READ ONLY / EVIDENCE FIRST / NEVER OVERCLAIM</span>
 </footer>

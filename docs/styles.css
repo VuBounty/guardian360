@@ -106,3 +106,28 @@ body:before {opacity:.055;}
 .summaryfoot .footer-copyright{justify-self:center;color:#d1f6db;text-align:center;font-size:calc(12px * var(--fontBoost));font-weight:700;white-space:nowrap}
 @media (max-width:950px){.beta-banner{flex-direction:column;align-items:flex-start;gap:4px}.summaryfoot{grid-template-columns:1fr;gap:8px;text-align:center}.summaryfoot .footer-left,.summaryfoot .footer-copyright,.summaryfoot .footer-right{justify-self:center;text-align:center}}
 @media (max-width:670px){.beta-banner{margin-top:10px;font-size:calc(11px * var(--fontBoost));padding:10px}.beta-banner strong{white-space:normal}.audit-badge{font-size:10px;min-height:26px}.summaryfoot .footer-copyright{font-size:calc(11px * var(--fontBoost));white-space:normal}.brandtag{font-size:10px;line-height:1.5}.nav-right{gap:5px}}
+
+/* V2.6 asset-first layout: results above explanations, no alarming audit badge. */
+.compact-status{font-size:11px;letter-spacing:.04em;color:#9dbdab;padding:7px 0;border-bottom:1px solid #274c34}
+.audit{display:block!important}
+.audit-technical{margin-top:15px;border:1px solid #315a40;border-radius:4px;padding:12px}
+.audit-technical>summary,.scan-limits>summary,.methodology-disclosure>summary{cursor:pointer;color:#a2efbc;font-size:12px;letter-spacing:.035em;font-weight:700}
+.audit-technical>.aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.audit-technical>.aside .aside-panel:last-child{grid-column:1/-1}
+.scan-limits{margin-top:15px;border:1px solid #315a40;border-radius:4px;padding:14px}
+.scan-limits .warning-strip{margin-top:11px}
+.methodology-disclosure{margin-top:20px;border:1px solid #234632;border-radius:4px;padding:14px 20px;color:#abc4ae}
+.methodology-disclosure p{font-size:12px;line-height:1.65}
+.asset-filter{display:flex;align-items:center;gap:12px;margin:10px 0 18px;flex-wrap:wrap;color:#a8e7ba;font-size:12px}
+.asset-filter select{background:#09160e;border:1px solid #3d7854;color:#d7f5df;padding:9px;border-radius:3px;font:inherit;min-width:195px}
+.asset-usd{font-size:11px;color:#a8dbc3;margin:5px 0}
+.asset-paging{padding:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;border:1px solid #3a6848;margin-top:12px;color:#b9d8c4;font-size:12px}
+@media(max-width:670px){.audit-technical>.aside{display:block}.audit-technical>.aside .aside-panel{margin-top:12px}.compact-status{font-size:10px}.asset-paging{display:block}.asset-paging button{margin-top:10px;width:100%}.asset-filter select{width:100%}}
+
+/* V2.6 RC production integration: asset-first compact controls */
+.asset-filter input[type="search"]{background:#09160e;border:1px solid #3d7854;color:#d7f5df;padding:9px;border-radius:3px;font:inherit;min-width:220px;max-width:100%;flex:1}
+.asset-filter label{font-size:10px;font-weight:800;color:#9ec4a6;white-space:nowrap}
+@media(max-width:670px){.asset-filter{align-items:stretch;flex-direction:column;gap:7px}.asset-filter input[type="search"],.asset-filter select{width:100%;min-width:0;flex:auto}.section-mark{overflow-wrap:anywhere}}
+
+/* Compact mobile summary: inventory is the focal point, not warning cards. */
+@media(max-width:670px){.stats{gap:7px}.stat{min-height:99px;padding:11px 12px}.stat .heading{font-size:9px;letter-spacing:.04em}.stat .value{font-size:20px;margin:6px 0 2px}.stat .sub{font-size:9px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}.report .bar{align-items:start}.report-wallet{overflow-wrap:anywhere}}

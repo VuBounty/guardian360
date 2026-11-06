@@ -1,4 +1,4 @@
-name: Guardian 360 static preview - read-only
+name: Guardian 360 live read-only scanner
 on:
   push:
     branches: [main]

@@ -1,0 +1,128 @@
+/* GUARDIAN 360 V2.6 · Visual refinement layer · production source remains untouched.
+   Enhances readability and product hierarchy without changing security behaviour. */
+:root{
+  --bg:#080e15;--panel:#101922;--panel2:#141f29;--raised:#182733;
+  --line:#253d47;--line-bright:#406775;
+  --green:#b4f8d9;--electric:#5ce6c9;--sub:#91a8b3;
+  --text:#eaf5f7;--amber:#ffd18a;--red:#ff8d96;--blue:#9edbf3;
+  --mono:"IBM Plex Mono","SFMono-Regular",Menlo,Consolas,monospace;
+  --ui:Inter,"SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  --radius:14px;
+}
+html{scroll-padding-top:22px}body{
+  font:14px/1.58 var(--ui);
+  background:radial-gradient(1100px 750px at 78% -20%,rgba(43,114,126,.16),transparent 66%),
+             radial-gradient(900px 660px at 1% 16%,rgba(11,90,83,.14),transparent 75%),
+             linear-gradient(180deg,#080d15 0%,#0a131a 47%,#071016 100%);
+  color:var(--text);-webkit-font-smoothing:antialiased
+}
+body:before{opacity:.012;z-index:1}body:after{opacity:.12;z-index:1}
+body>*{position:relative;z-index:2}
+.wrap{width:min(1320px,calc(100% - 56px))}
+.topline{height:2px;background:linear-gradient(90deg,transparent,#64e7cb 26%,#79b7ee 57%,transparent)}
+nav{min-height:88px;border-bottom:1px solid rgba(125,188,196,.16)}
+.brand{gap:14px}.mark{border:1px solid #558c8a;background:linear-gradient(145deg,#173f40,#0e1c29);color:#e4fff2;border-radius:12px;width:50px;height:50px;font:800 19px var(--ui);box-shadow:0 10px 25px #02090b88}
+.mark:after{border-color:#2b7b77;border-radius:8px}
+.brandname{font:800 21px/1.1 var(--ui);letter-spacing:-.055em}
+.brandname span{color:#6be5cc}.brandtag{font:600 10px/1.5 var(--mono);letter-spacing:.065em;color:#8faeba}
+.indicator{border:1px solid #24454b;background:#0e2028;border-radius:20px;color:#9bbbc4;font:600 10px var(--mono);padding:8px 12px}
+.testtag{background:#142723;border:1px solid #357e71;color:#8eead3;padding:8px 12px;border-radius:20px;font:700 10px var(--mono)}
+.compact-status{font:600 10px/1.6 var(--mono);letter-spacing:.055em;color:#9bb4be;border-color:#28424b;padding:10px 2px}
+.hero{padding:33px 0 24px;gap:38px;align-items:center}
+.eyebrow{font:700 11px/1.55 var(--mono);letter-spacing:.105em;color:#69e7cb}
+.hero h1{font:800 clamp(28px,3.1vw,44px)/1.12 var(--ui);letter-spacing:-.052em;margin:9px 0 11px}
+.hero h1 em{color:#7ee9ce}.hero p{font:400 14px/1.7 var(--ui);color:#afc2ca;margin:0;max-width:620px}
+.hero-code{background:#101d28;border:1px solid #233d48;border-radius:12px;padding:14px 17px;text-align:left;display:grid;gap:5px;color:#92a9b4;font:500 10px/1.6 var(--mono)}
+.hero-code div{display:flex;justify-content:space-between;gap:22px}.hero-code strong{color:#8beecf;font-weight:700}
+.panel{border-radius:var(--radius);border-color:#29454c;background:linear-gradient(135deg,rgba(18,33,43,.97),rgba(11,24,32,.97));box-shadow:0 15px 40px rgba(0,0,0,.15),inset 0 1px 0 #ffffff0a}
+.panel:before,.panel:after{display:none}
+.button{border-radius:8px;font:700 11px/1.25 var(--mono);letter-spacing:.025em;transition:background .18s,border-color .18s,transform .12s;padding:13px 16px}
+.button:active{transform:translateY(1px)}.button-primary{background:#78eacb;color:#07201f;border-color:#8af5d6;box-shadow:0 6px 22px #55d5b626}
+.button-primary:hover{background:#a3f9db}.button-quiet{border-color:#34545e;color:#cee3e8;background:#152731}
+.button-quiet:hover{background:#1e3742}
+.button-small{font-size:10px;padding:9px 12px}
+.command{padding:23px 25px 18px}.panelhead{margin-bottom:17px}.paneltitle{font:800 13px var(--ui);letter-spacing:.025em;color:#e5f6f5}.paneltitle:before{color:#61dfc0;opacity:.9}
+.micro,.fieldlabel,.commandfoot,.viewfilter{font:500 11px/1.55 var(--mono);letter-spacing:.015em;color:#98b2ba}
+.fieldlabel{font-weight:700;margin-bottom:9px;color:#b3c5cb}
+.entryrow{grid-template-columns:minmax(0,2.1fr) minmax(205px,.8fr) auto;gap:13px}
+.field,.network-trigger{height:52px;border:1px solid #385661;background:#0a1921;border-radius:8px}
+.field:focus-within,.network-trigger:focus-visible{border-color:#79e9cf;box-shadow:0 0 0 3px #64e7d11f}
+.field input{font:500 13px var(--mono);color:#ecfafb}.field input::placeholder{color:#718e9a}
+.network-trigger b{font:650 13px var(--ui)}.network-menu{border:1px solid #44767d;background:#0f1d27;border-radius:12px;box-shadow:0 30px 80px #000b}
+.network-opt:hover{background:#19323c}.network-opt{border-bottom-color:#27424e}
+.commandfoot{margin-top:10px;color:#97b3b8}.commandfoot b{color:#a4f2d7}
+.bar{margin:24px 0 12px}.bar .eyebrow{font-size:13px;font-weight:800}
+.report-wallet{font:500 11px/1.6 var(--mono);color:#9fb5be}
+.stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+.stat{min-height:151px;padding:20px 20px 17px;box-shadow:0 12px 34px #03080e40}
+.stat:first-child{background:linear-gradient(135deg,rgba(22,57,62,.97),rgba(14,33,43,.97));border-color:#3b7d80}
+.fline{height:3px;border-radius:2px;background:linear-gradient(90deg,#5be6c7,#458993 58%,transparent)}
+.stat .heading{font:700 11px/1.5 var(--mono);letter-spacing:.045em;color:#a9c4c9}
+.stat .value{font:800 clamp(25px,2.4vw,33px)/1.25 var(--ui);letter-spacing:-.055em;margin:14px 0 8px}
+.stat .sub{font:450 12px/1.6 var(--ui);color:#a4bdc3}
+.detailhead{padding:21px 22px;gap:13px}.detailhead .paneltitle{font-size:15px}
+.tabbar{padding:9px 16px 0;gap:5px;scrollbar-width:thin;scrollbar-color:#38626c transparent}
+.tab{font:700 11px/1.4 var(--mono);color:#94adb8;border-bottom-width:3px;border-radius:7px 7px 0 0;padding:14px 13px;transition:background .15s}
+.tab[aria-selected=true]{color:#b9fae1;background:#1a394088;border-color:#69e9c9}
+.tab:hover{background:#1c323f;color:#defaf3}
+.tabcontent{padding:23px 24px 30px;min-height:300px}
+.asset-filter{gap:11px;margin:18px 0 24px;color:#bed9dc}
+.asset-filter select,.asset-filter input[type=search],.viewfilter select{background:#0b1d26;border:1px solid #3a5b67;color:#e2f6f4;border-radius:8px;padding:12px 13px;min-height:45px;font:500 12px var(--ui)}
+.asset-filter label{font:700 10px var(--mono);color:#a7c4ca}
+.resultrow{grid-template-columns:minmax(0,1.45fr) minmax(0,.75fr) auto;border-bottom:1px solid #26414b;padding:19px 5px;column-gap:18px;transition:background .12s}
+.resultrow:hover{background:#162c354d}.resultrow b{font:700 13px/1.5 var(--ui);color:#eaf8f8}
+.resultrow small{font:500 11px/1.65 var(--mono);color:#9fbbc2}
+.right{font-family:var(--mono);font-weight:600}
+.tag{font:700 10px/1.3 var(--mono);border-radius:6px;padding:6px 9px;border-color:#357a70;background:#163e39;color:#bbfbe4}
+.tag.warn{border-color:#82683d;background:#332818;color:#ffe0a0}.tag.low{border-color:#365f7b;background:#172e43;color:#addff8}.tag.fail{border-color:#99545e;background:#38202c;color:#ffa9b1}
+.asset-paging{border-color:#314f58;border-radius:10px;color:#b5cbd0;background:#122630;padding:17px 18px}
+.audit-technical,.scan-limits,.methodology-disclosure{border-color:#29454f;border-radius:11px;background:#101d27aa;padding:16px 18px}
+.audit-technical>summary,.scan-limits>summary,.methodology-disclosure>summary{font:700 12px/1.55 var(--ui);color:#c3e9e3;letter-spacing:0}
+.scan-limits{margin-top:17px}.methodology-disclosure{margin-top:21px}.methodology-disclosure p{font:400 12px/1.7 var(--ui);color:#a9bfc8}
+.consent-panel,.afterword{margin-top:20px}.summaryfoot{color:#8ba8b1}
+/* Once scanning completes, eliminate marketing hero so the findings dominate. */
+body:has(#report.active) .hero{display:none}
+body:has(#report.active) .command{padding:15px 22px}
+body:has(#report.active) .command .panelhead{margin-bottom:9px}
+body:has(#report.active) .command .commandfoot{display:none}
+@media(max-width:1050px){.hero-code{display:none}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.entryrow{grid-template-columns:minmax(0,1fr) minmax(210px,.6fr)}.entryrow>div:last-child{grid-column:1/-1}.entryrow .run{width:100%}}
+@media(max-width:670px){
+ .wrap{width:calc(100% - 30px)}nav{min-height:78px;gap:8px;align-items:flex-start;padding:13px 0}
+ .brand{gap:9px}.mark{width:42px;height:42px;font-size:16px}.brandname{font-size:17px}.brandtag{font-size:8px;max-width:190px}
+ .nav-right{gap:5px;max-width:122px}.nav-right .indicator,.nav-right .testtag{display:none}
+ .hero{padding:23px 0 19px}.hero h1{font-size:29px}.hero p{font-size:13px}
+ .compact-status{font-size:9px}.command{padding:17px 16px}.entryrow{grid-template-columns:1fr;gap:12px}.entryrow>div:last-child{grid-column:auto}
+ .panelhead{display:block}.panelhead .micro{display:block;margin-top:5px}
+ .field,.network-trigger{height:49px}.field input{font-size:12px}
+ .bar{align-items:start;gap:8px;flex-wrap:wrap}.bar .eyebrow{font-size:12px}.toolbar{margin-left:auto}
+ .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{min-height:126px;padding:13px 13px 11px}.stat .heading{font-size:10px;line-height:1.5}
+ .stat .value{font-size:25px;margin:8px 0 4px}.stat .sub{font-size:11px;line-height:1.45}
+ .detailhead{padding:16px;flex-wrap:wrap}.detailhead .paneltitle{font-size:14px}
+ .tabbar{padding:8px 10px 0}.tab{font-size:10px;padding:12px 11px}
+ .tabcontent{padding:17px 15px 24px}.asset-filter{gap:6px;margin:12px 0 19px}
+ .asset-filter select,.asset-filter input[type=search],.viewfilter select{font-size:13px;min-height:43px}
+ .resultrow{grid-template-columns:minmax(0,1fr) auto;gap:9px;padding:16px 2px}.resultrow>:nth-child(2){grid-row:2;grid-column:1;text-align:left}
+ .resultrow>:nth-child(3){grid-column:2;grid-row:1 / span 2;align-self:center}.resultrow b{font-size:13px}.resultrow small{font-size:10px}
+ .tag{white-space:normal;max-width:132px;text-align:center;font-size:9px}
+ .audit-technical,.scan-limits,.methodology-disclosure{padding:14px 12px}
+}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+/* Mobile report density: put actual assets within the first screen after scan. */
+@media(max-width:670px){
+ .stat{min-height:96px;padding:11px 12px 10px}
+ .stat .value{font-size:23px;margin:5px 0 0}
+ .stat .sub{display:none}
+ .stat .fline{height:2px;margin-bottom:8px}
+ .detailhead{padding:12px 14px}
+ .detailhead .micro{font-size:10px}
+ .tabbar{padding-top:4px}
+ .tabcontent{padding-top:13px}
+ .tabcontent .content-desc{display:none}
+ .tabcontent .content-title{font-size:10px}
+ .tabcontent .micro[role=status]{font-size:10px;line-height:1.45;margin:7px 0}
+ .asset-filter{margin:10px 0 14px}
+ .asset-filter label{display:none}
+ .asset-filter select,.asset-filter input[type=search]{height:42px;min-height:42px}
+ .section-mark{margin-top:12px;font-size:10px}
+ .section-mark + .micro{font-size:9px;line-height:1.4;margin:5px 0}
+}

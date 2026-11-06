@@ -18,8 +18,8 @@ jobs:
         with:
           node-version: '20'
       - run: python -m pip install -r backend/requirements.txt
-      - run: python -m pytest -q backend/tests qa/test_analytics_integration.py qa/test_public_api.py qa/test_asset_v25.py qa/test_asset_v25_rc1.py
+      - run: PYTHONPATH=backend python -m pytest -q backend/tests qa
       - run: python -m compileall -q backend/main.py backend/forensic.py backend/asset_valuation.py backend/public_api.py
-      - run: node --check docs/app.js
-      - run: node qa/test_v25_rc1_ui.cjs
+      - run: node --check docs/app.js && node --check docs/config.js
+      - run: node qa/test_v25_rc1_ui.cjs && node qa/test_v26_ui.cjs
       - run: python qa/check_english_release.py
