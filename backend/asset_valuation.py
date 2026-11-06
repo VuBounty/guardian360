@@ -20,7 +20,7 @@ ADDRESS = re.compile(r'^0x[0-9a-fA-F]{40}$')
 MAX_QUOTE_AGE_SECONDS = 1800
 MIN_PRICE_CONFIDENCE = Decimal('0.80')
 # An empty token index is not proof that the wallet has no other tokens.
-MAX_INDEXED_CANDIDATES = 16
+MAX_INDEXED_CANDIDATES = max(16, min(96, int(os.getenv("GUARDIAN_MAX_INDEXED_CANDIDATES", "48"))))
 
 # Curated public contract identities. Listing here does NOT certify token safety.
 ETHEREUM_AXS_CONTRACT = '0xbb0e17ef65f82ab018d8edd776e8dd940327b28b'
@@ -249,6 +249,22 @@ async def reconcile_assets(client, rpc_call: Callable, rpc_url: str,
 
     examined = await asyncio.gather(*(probe(c) for c in selected))
     result = [row for row, _ in examined if row]
+    # CRITICAL: asset discovery must NOT be confused with verification or USD valuation.
+    # Preserve every positive indexer candidate beyond the RPC budget as an unverified
+    # discovery, with raw evidence and NO trusted USD. Never silently discard dust/spam.
+    skipped = secondary[MAX_INDEXED_CANDIDATES:]
+    for c in skipped:
+        base = by_contract[c]
+        result.append({**base, 'contract': c, 'usd_price': None, 'usd_value': None,
+                       'price_source': None, 'price_timestamp': None,
+                       'price_status': 'excluded_unverified',
+                       'balance_verification': 'not_checked_rpc_budget',
+                       'balance_source': 'indexer_unverified',
+                       'source': 'indexer_candidate_not_rpc_verified',
+                       'explorer_url': explorer + '/token/' + c})
+    stats['preserved_unverified_due_to_rpc_budget'] = len(skipped)
+    stats['discovered_contracts_retained'] = len(result)
+    stats['discovery_is_complete'] = False  # Cannot establish global completeness.
     stats['balance_verification_failures'] = sum(status == 'balance_error' for _, status in examined)
     stats['decimals_verification_failures'] = sum(status == 'decimals_error' for _, status in examined)
     stats['verified_positive_balances'] = sum(status == 'verified' for _, status in examined)

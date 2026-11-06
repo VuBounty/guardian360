@@ -105,6 +105,18 @@ def classify_token(token: dict, chain: str) -> dict:
     if verification is not None and verification != 'verified':
         reasons.append('Live token balance or decimals not fully verified: ' + str(verification)[:70])
     t['review_reasons'] = reasons
+    # Evidence-based display labels; neither a ticker nor a recognized contract
+    # constitutes a security clearance, and spam heuristics are not proof of fraud.
+    if t.get('possible_spam') is True or reputation in ('spam', 'scam', 'malicious'):
+        t['asset_category'] = 'suspected_spam'
+    elif verification is not None and verification != 'verified':
+        t['asset_category'] = 'not_verified'
+    elif reasons:
+        t['asset_category'] = 'review'
+    elif recognized_symbol is not None:
+        t['asset_category'] = 'recognized'
+    else:
+        t['asset_category'] = 'unverified_identity'
     t['classification'] = 'review' if reasons else ('recognized_contract' if recognized_symbol else 'unverified')
     t['contract_recognized'] = recognized_symbol is not None
     t['trusted_usd_eligible'] = bool(recognized_symbol is not None and not reasons and (t.get('balance_verification') in (None, 'verified')) and (t.get('price_source') is None or t.get('price_source') in ('defillama_by_chain_and_contract', 'coingecko_by_chain_and_contract')) and to_decimal(t.get('usd_value')) is not None and to_decimal(t.get('usd_value')) >= 0)

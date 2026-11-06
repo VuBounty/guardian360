@@ -12,6 +12,7 @@ import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, localcontext
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -21,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from forensic import classify_token, classify_delegation, evaluate_coverage, summarize_forensic, exact_balance
 from asset_valuation import BSC_CATALOG, ETHEREUM_CATALOG, reconcile_assets, native_usd_quote
+from inventory_sources import union_token_candidates, asset_register, inventory_status
 
 ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 APPROVAL_TOPIC = "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
@@ -41,12 +43,12 @@ CHAINS = {
     "base": dict(name="Base", id=8453, symbol="ETH", rpc="https://base-rpc.publicnode.com", explorer="https://basescan.org", indexer="https://base.blockscout.com/api/v2"),
     "arbitrum": dict(name="Arbitrum One", id=42161, symbol="ETH", rpc="https://arbitrum-one-rpc.publicnode.com", explorer="https://arbiscan.io", indexer="https://arbitrum.blockscout.com/api/v2"),
 }
-MAX_TOKEN_PAGES = max(1, min(3, int(os.getenv("MAX_TOKEN_PAGES", "2"))))
+MAX_TOKEN_PAGES = max(1, min(20, int(os.getenv("MAX_TOKEN_PAGES", "8"))))
 MAX_TX_PAGES = max(1, min(5, int(os.getenv("MAX_TX_PAGES", "2"))))
 LOG_LOOKBACK = max(0, min(10000, int(os.getenv("APPROVAL_LOG_LOOKBACK_BLOCKS", "2500"))))
 MAX_LOG_TOKEN_CONTRACTS = 12
 
-app = FastAPI(title="Guardian 360 Wallet Security API", version="2.4.0-beta")
+app = FastAPI(title="Guardian 360 Wallet Security API", version="2.6.0-rc-hold")
 app.include_router(analytics_router)
 SCAN_SLOTS = asyncio.Semaphore(3)  # simple overload guard, not a public rate limiter
 origins = [v.strip() for v in os.getenv("CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://localhost:5173,http://127.0.0.1:5173").split(",") if v.strip()]
@@ -124,31 +126,50 @@ async def eth_call(client: httpx.AsyncClient, url: str, contract: str, data: str
 async def indexer_get(client: httpx.AsyncClient, base: str, path: str, params: dict | None = None) -> Any:
     url = base.rstrip("/") + path
     query = dict(params or {})
-    if os.getenv("BLOCKSCOUT_API_KEY"):
-        query["apikey"] = os.environ["BLOCKSCOUT_API_KEY"]
-    response = await client.get(url, params=query, timeout=12)
+    # Security boundary: Routescan paid credentials must never be forwarded to
+    # arbitrary INDEXER_* overrides, or stored in query strings/access logs.
+    parsed = urlsplit(base)
+    headers: dict[str, str] = {}
+    if parsed.scheme == "https" and parsed.hostname == "blockscout.routescan.io":
+        key = os.getenv("BLOCKSCOUT_API_KEY")
+        if not key:
+            raise RuntimeError("Routescan Blockscout indexer requires a paid API key")
+        headers["x-api-key"] = key
+    response = await client.get(url, params=query, headers=headers, timeout=12)
     response.raise_for_status()
     return response.json()
 
 
 async def indexer_pages(client: httpx.AsyncClient, base: str, path: str, limit: int, params: dict | None = None) -> tuple[list[dict], bool]:
-    """Return items and fully_paginated flag, without assuming completeness of historical indexer."""
+    """Bounded cursor walk: preserve fetched pages if a later page fails.
+
+    False means more pages may exist or a page failed; no implication that the
+    network's asset catalog is exhaustive. Cycle detection prevents bad cursors.
+    """
     items: list[dict] = []
     query = dict(params or {})
-    complete = False
+    seen_cursors: set[str] = set()
     for _ in range(limit):
-        payload = await indexer_get(client, base, path, query)
-        if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
-            raise ValueError("Indexer response format changed")
-        items.extend(x for x in payload["items"] if isinstance(x, dict))
-        nxt = payload.get("next_page_params")
-        if not nxt:
-            complete = True
-            break
-        if not isinstance(nxt, dict):
-            raise ValueError("Unsupported indexer pagination format")
-        query = {**(params or {}), **nxt}
-    return items, complete
+        try:
+            payload = await indexer_get(client, base, path, query)
+            if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+                raise ValueError("Indexer response format changed")
+            items.extend(x for x in payload["items"] if isinstance(x, dict))
+            nxt = payload.get("next_page_params")
+            if not nxt:
+                return items, True
+            if not isinstance(nxt, dict):
+                raise ValueError("Unsupported indexer pagination format")
+            marker = repr(sorted(nxt.items()))
+            if marker in seen_cursors:
+                return items, False
+            seen_cursors.add(marker)
+            query = {**(params or {}), **nxt}
+        except Exception:
+            if not items:
+                raise
+            return items, False
+    return items, False
 
 
 def parse_token(item: dict, chain: str, explorer: str) -> dict | None:
@@ -160,15 +181,17 @@ def parse_token(item: dict, chain: str, explorer: str) -> dict | None:
         return None
     try:
         raw = val_to_int(item.get("value", 0))
-        decimals = int(meta.get("decimals", 18))
-        if raw <= 0 or not 0 <= decimals <= 36:
+        decimals = int(meta["decimals"]) if meta.get("decimals") not in (None, "") else None
+        if raw <= 0:
             return None
+        if decimals is not None and not 0 <= decimals <= 36:
+            decimals = None
         with localcontext() as ctx:
             ctx.prec = 115
-            balance = Decimal(exact_balance(raw, decimals))
+            balance = Decimal(exact_balance(raw, decimals)) if decimals is not None else None
             price = as_decimal(meta.get("exchange_rate"))
-            usd = (balance * price) if price is not None and price >= 0 else None
-        return {"reputation": meta.get("reputation"), "symbol": str(meta.get("symbol") or "UNKNOWN")[:24], "name": str(meta.get("name") or "Token")[:70], "contract": contract, "raw_balance": str(raw), "decimals": decimals, "balance": format(balance, "f"), "usd_price": format(price, "f") if price is not None else None, "usd_value": format(usd, "f") if usd is not None else None, "source": "blockscout-indexer", "explorer_url": explorer + "/token/" + contract}
+            usd = (balance * price) if balance is not None and price is not None and price >= 0 else None
+        return {"reputation": meta.get("reputation"), "symbol": str(meta.get("symbol") or "UNKNOWN")[:24], "name": str(meta.get("name") or "Token")[:70], "contract": contract, "raw_balance": str(raw), "decimals": decimals, "balance": format(balance, "f") if balance is not None else None, "usd_price": format(price, "f") if price is not None else None, "usd_value": format(usd, "f") if usd is not None else None, "source": "blockscout-indexer", "explorer_url": explorer + "/token/" + contract}
     except (ValueError, InvalidOperation, TypeError):
         return None
 
@@ -185,35 +208,46 @@ async def moralis_token_index(client: httpx.AsyncClient, wallet: str, key: str, 
     query: dict = {"chain": hex(CHAINS[key]["id"]), "limit": 100}
     out: list[dict] = []
     complete = False
+    seen_cursors = set()
     for _ in range(MAX_TOKEN_PAGES):
-        response = await client.get("https://deep-index.moralis.io/api/v2.2/wallets/" + wallet + "/tokens", params=query, headers={"X-API-Key": api_key}, timeout=14)
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict) or not isinstance(payload.get("result"), list):
-            raise ValueError("Moralis token index format changed")
+        try:
+            response = await client.get("https://deep-index.moralis.io/api/v2.2/wallets/" + wallet + "/tokens", params=query, headers={"X-API-Key": api_key}, timeout=14)
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict) or not isinstance(payload.get("result"), list):
+                raise ValueError("Moralis token index format changed")
+        except Exception:
+            if out:
+                return out, False  # Partial rows are kept, never lost on later-page failure.
+            raise
         for item in payload["result"]:
             contract = item.get("token_address", "")
             if not ADDRESS.fullmatch(contract):
                 continue
             try:
                 raw = val_to_int(item.get("balance", 0))
-                dec = int(item.get("decimals", 18))
-                if raw <= 0 or not 0 <= dec <= 36:
+                dec = int(item["decimals"]) if item.get("decimals") not in (None, "") else None
+                if raw <= 0:
                     continue
+                if dec is not None and not 0 <= dec <= 36:
+                    dec = None
                 with localcontext() as ctx:
                     ctx.prec = 115
-                    balance = Decimal(exact_balance(raw, dec))
+                    balance = Decimal(exact_balance(raw, dec)) if dec is not None else None
                     price = as_decimal(item.get("usd_price"))
                     usd = as_decimal(item.get("usd_value"))
-                    if usd is None and price is not None:
+                    if usd is None and balance is not None and price is not None:
                         usd = balance * price
-                out.append({"symbol": str(item.get("symbol") or "UNKNOWN")[:24], "name": str(item.get("name") or "Token")[:70], "contract": contract, "raw_balance": str(raw), "decimals": dec, "balance": format(balance, "f"), "usd_price": format(price, "f") if price is not None else None, "usd_value": format(usd, "f") if usd is not None else None, "possible_spam": bool(item.get("possible_spam", False)), "source": "moralis-indexer", "explorer_url": explorer + "/token/" + contract})
+                out.append({"symbol": str(item.get("symbol") or "UNKNOWN")[:24], "name": str(item.get("name") or "Token")[:70], "contract": contract, "raw_balance": str(raw), "decimals": dec, "balance": format(balance, "f") if balance is not None else None, "usd_price": format(price, "f") if price is not None else None, "usd_value": format(usd, "f") if usd is not None else None, "possible_spam": bool(item.get("possible_spam", False)), "source": "moralis-indexer", "explorer_url": explorer + "/token/" + contract})
             except (ValueError, TypeError, InvalidOperation):
                 continue
         cursor = payload.get("cursor")
         if not cursor:
             complete = True
             break
+        if cursor in seen_cursors:
+            break
+        seen_cursors.add(cursor)
         query["cursor"] = cursor
     return out, complete
 
@@ -421,9 +455,15 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
     rpc_url = os.getenv("RPC_" + key.upper(), cfg["rpc"])
     indexer_url = os.getenv("INDEXER_" + key.upper(), cfg["indexer"])
     # Routescan Blockscout-compatible v2 requires a paid key. Avoid a predictable 401.
-    if key == "bsc" and "routescan.io" in indexer_url and not os.getenv("BLOCKSCOUT_API_KEY"):
+    indexer_auth_missing = (key == "bsc" and urlsplit(indexer_url).hostname == "blockscout.routescan.io"
+                            and not os.getenv("BLOCKSCOUT_API_KEY"))
+    if indexer_auth_missing:
         indexer_url = ""
-    result: dict = {"chain": key, "name": cfg["name"], "chain_id": cfg["id"], "symbol": cfg["symbol"], "native_balance": None, "native_usd": None, "block": None, "native_status": "unverified", "tokens": [], "approvals": [], "sweeper": {"status": "not_checked"}, "delegation": {"status": "not_checked"}, "coverage": {}, "error": None}
+    result: dict = {"chain": key, "name": cfg["name"], "chain_id": cfg["id"], "symbol": cfg["symbol"], "native_balance": None, "native_usd": None, "block": None, "native_status": "unverified", "tokens": [], "nft_assets": [], "approvals": [], "sweeper": {"status": "not_checked"}, "delegation": {"status": "not_checked"}, "coverage": {}, "error": None}
+    if indexer_auth_missing:
+        result["coverage"]["bsc_indexer_auth"] = "ROUTESCAN_PAID_KEY_MISSING__INDEXER_DISCOVERY_DISABLED"
+    else:
+        result["coverage"]["bsc_indexer_auth"] = "NOT_APPLICABLE_OR_CONFIGURED"
     block = None
     try:
         chain_id, blockhex = await asyncio.gather(
@@ -449,14 +489,48 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
     except Exception as exc:
         result["delegation"] = {"status": "unverified", "error": short_error(exc)}
 
+    result["coverage"]["inventory_sources"] = []
     tok_items = []
     tx_items = []
     tok_complete = False
     tx_complete = False
     async def load_tokens():
         if not indexer_url:
-            raise RuntimeError("Indexer not configured; Routescan paid API key required")
-        return await indexer_pages(client, indexer_url, "/addresses/" + wallet + "/tokens", MAX_TOKEN_PAGES, {"type": "ERC-20"})
+            raise RuntimeError("Token indexer unavailable or not configured for this chain")
+        # Blockscout-compatible providers can expose a complete-looking,
+        # unpaginated token-balances endpoint *as well as* paginated /tokens.
+        # Combine both inventories, never infer global completeness from either.
+        pages, balances = await asyncio.gather(
+            indexer_pages(client, indexer_url, "/addresses/" + wallet + "/tokens",
+                          MAX_TOKEN_PAGES, {"type": "ERC-20"}),
+            indexer_get(client, indexer_url, "/addresses/" + wallet + "/token-balances"),
+            return_exceptions=True)
+        items = []
+        pages_complete = False
+        if not isinstance(pages, Exception):
+            items.extend(pages[0]); pages_complete = pages[1]
+        if isinstance(balances, list):
+            items.extend(x for x in balances if isinstance(x, dict))
+            result["coverage"]["token_balance_endpoint"] = "returned_" + str(len(balances)) + "_entries_not_guaranteed_complete"
+        elif isinstance(balances, Exception):
+            result["coverage"]["token_balance_endpoint"] = "unavailable: " + short_error(balances)
+        else:
+            result["coverage"]["token_balance_endpoint"] = "invalid_provider_format"
+        if isinstance(pages, Exception) and not isinstance(balances, list):
+            raise RuntimeError("Both token inventory endpoints unavailable")
+        result["coverage"]["inventory_sources"].append({
+            "name": "blockscout-compatible", "state": "exhausted" if pages_complete else "partial",
+            "observations": len(items), "max_pages": MAX_TOKEN_PAGES,
+            "token_balances_endpoint": isinstance(balances, list),
+            "global_completeness": False})
+        return items, pages_complete
+    async def load_nfts():
+        if not indexer_url:
+            raise RuntimeError("NFT indexer not configured")
+        # Holdings discovery is indexer evidence ONLY; ownerOf/1155 balances are
+        # not yet verified in this release. Never infer NFT safety or USD value.
+        return await indexer_pages(client, indexer_url,
+                                   "/addresses/" + wallet + "/nft", MAX_TOKEN_PAGES)
     async def load_transactions():
         if not indexer_url:
             raise RuntimeError("Indexer not configured; no recent transaction history")
@@ -466,10 +540,46 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
             raise RuntimeError("Indexer not configured; no native coin price")
         d = await indexer_get(client, indexer_url, "/stats")
         return as_decimal(d.get("coin_price")) if isinstance(d, dict) else None
-    loaded = await asyncio.gather(load_tokens(), load_transactions(), load_native_price(), return_exceptions=True)
+    loaded = await asyncio.gather(load_tokens(), load_transactions(), load_native_price(), load_nfts(), return_exceptions=True)
     token_err, tx_err = None, None
+    if isinstance(loaded[3], Exception):
+        result["coverage"]["nft_index"] = "unavailable: " + short_error(loaded[3])
+    else:
+        nft_rows, nft_complete = loaded[3]
+        nfts=[]
+        nft_seen=set()
+        for item in nft_rows:
+            if not isinstance(item,dict):
+                continue
+            meta=item.get('token') or {}
+            if not isinstance(meta,dict):
+                continue
+            contract=hash_of(meta.get('address_hash') or meta.get('address') or '')
+            if not ADDRESS.fullmatch(contract):
+                continue
+            instance=item.get('token_instance')
+            instance_id=instance.get('id') if isinstance(instance,dict) else None
+            identifier=str(item.get('id') or item.get('token_id') or instance_id or '')
+            standard=str(meta.get('type') or '').upper()
+            if standard not in ('ERC-721','ERC-1155') or not identifier.isdigit():
+                continue
+            identity=(contract.lower(),identifier)
+            if identity in nft_seen:
+                continue
+            nft_seen.add(identity)
+            nfts.append({'contract':contract,'token_id':identifier,'standard':standard,
+                         'symbol':str(meta.get('symbol') or 'NFT')[:24],
+                         'name':str(meta.get('name') or 'Unknown NFT')[:70],
+                         'balance':str(item.get('value') or '1'),
+                         'source':'blockscout-nft-indexer',
+                         'verification_status':'INDEXER_REPORTED_NOT_ONCHAIN_RECHECKED',
+                         'usd_value':None,'explorer_url':cfg['explorer']+'/token/'+contract})
+        result['nft_assets']=nfts
+        result["coverage"]["nft_index"] = ('indexer_pages_complete' if nft_complete else
+                                             f'partial_first_{MAX_TOKEN_PAGES}_pages')
     if isinstance(loaded[0], Exception):
         token_err = short_error(loaded[0])
+        result["coverage"]["inventory_sources"].append({"name": "blockscout-compatible", "state": "unavailable", "reason": token_err})
     else:
         tok_items, tok_complete = loaded[0]
     if isinstance(loaded[1], Exception):
@@ -493,20 +603,25 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
     result["coverage"]["usd_prices"] = "indicative_indexer_quotes" if not isinstance(loaded[2], Exception) else "unavailable"
     parsed = [parse_token(item, key, cfg["explorer"]) for item in tok_items]
     tokens = [t for t in parsed if t]
+    moralis_items = []
     if os.getenv("MORALIS_API_KEY"):
         try:
             moralis_items, moralis_complete = await moralis_token_index(client, wallet, key, cfg["explorer"])
-            existing = {t["contract"].lower(): t for t in tokens}
-            for t in moralis_items:
-                # Prefer a priced Moralis entry when Blockscout lacks a quote.
-                if t["contract"].lower() not in existing or (existing[t["contract"].lower()].get("usd_value") is None and t.get("usd_value") is not None):
-                    existing[t["contract"].lower()] = t
-            tokens = list(existing.values())
             result["coverage"]["moralis_token_index"] = "complete_pages" if moralis_complete else f"partial_first_{MAX_TOKEN_PAGES}_pages"
+            result["coverage"]["inventory_sources"].append({
+                "name": "moralis", "state": "exhausted" if moralis_complete else "partial",
+                "observations": len(moralis_items), "max_pages": MAX_TOKEN_PAGES, "global_completeness": False})
         except Exception as exc:
-            result["coverage"]["moralis_token_index"] = "unavailable: " + short_error(exc)
+            reason = short_error(exc)
+            result["coverage"]["moralis_token_index"] = "unavailable: " + reason
+            result["coverage"]["inventory_sources"].append({"name": "moralis", "state": "unavailable", "reason": reason})
     else:
         result["coverage"]["moralis_token_index"] = "not_configured"
+        result["coverage"]["inventory_sources"].append({"name": "moralis", "state": "not_configured"})
+    tokens, merge_stats = union_token_candidates(tokens, moralis_items)
+    result["coverage"]["provider_merge"] = merge_stats
+    result["coverage"]["inventory_status"] = inventory_status(result["coverage"]["inventory_sources"])
+    result["coverage"]["inventory_claim"] = "SOURCE_BOUNDED; NEVER GLOBAL_COMPLETE"
     # V2.5: every candidate balance is re-read directly onchain at one block.
     # Indexer USD quotes never enter KNOWN ASSET VALUE without onchain balance,
     # decimals and a fresh contract-address-specific price quote.
@@ -514,6 +629,9 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
         client, rpc, rpc_url, wallet, key, block, tokens, KNOWN_TOKENS[key], cfg["explorer"])
     result["tokens"] = [classify_token(t, key) for t in verified_tokens]
     result["coverage"]["asset_valuation"] = asset_coverage
+    result["coverage"]["token_contracts_returned"] = len(result["tokens"])
+    result["coverage"]["token_index_discovery_limit"] = (
+        "BOUNDED; includes unverified indexer candidates; indexer may omit additional tokens")
     result["coverage"]["known_token_rpc"] = (
         "bounded_contract_probe" if not asset_coverage["balance_verification_failures"]
         else "partial_onchain_rpc_probe_failures")
@@ -571,7 +689,7 @@ async def scan_chain(client: httpx.AsyncClient, key: str, cfg: dict, wallet: str
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "service": "guardian360", "version": "2.4.0-beta", "mode": "read-only-scan + opt-in-wallet-revoke", "chains": list(CHAINS)}
+    return {"ok": True, "service": "guardian360", "version": "2.6.0-rc-hold", "mode": "INTERNAL_REVIEW_ONLY", "chains": list(CHAINS)}
 
 
 @app.get("/api/chains")
@@ -600,7 +718,8 @@ async def scan(request: ScanRequest):
         partial = forensic['priced_usd_by_chain'][chain['chain']]
         chain['priced_usd_partial'] = partial['usd_priced_partial']
         chain['priced_assets_count'] = partial['priced_entries']
-    payload = {"address": address, "timestamp": int(time.time()), "version": "2.5.0-public-beta", "chains": chains, "requested_chains": chosen, "summary": {"usd_known_sum": forensic["recognized_usd_partial"], "priced_usd_by_chain": forensic["priced_usd_by_chain"], "valuation_scope": "only_requested_scanned_chains; partial; independent_block_and_price_timestamps", "usd_unverified_excluded": forensic["excluded_unverified_usd_quotes"], "token_review_count": forensic["token_review_count"], "all_approvals_status": "UNKNOWN_INCOMPLETE", "usd_completeness": "partial_or_unknown", "active_approvals_discovered": approvals, "unlimited_approvals_discovered": unlimited, "sweeper_pattern_chains": flagged, "eip7702_delegation_chains": delegated, "rpc_unavailable_chains": unavailable, "risk_level": "investigate" if flagged else ("review_permissions" if unlimited else ("review_token_integrity" if forensic["token_review_count"] else "not_assessed")), "never_a_safety_clearance": True, "security_clearance": False, "audit_quality": "INCOMPLETE"}, "coverage": {"erc20_balances": "bounded_indexer_candidates_plus_curated_rpc_probes_at_block; not guaranteed complete", "approvals": "recent_wallet_transactions_and_bounded_events_only; older or unindexed approvals can be missed", "nft_operator": "recent_transaction_and_bounded_event_candidates; NFT holdings not comprehensive", "permit2": "partial recent onchain spender event discovery; older approvals and unsubmitted signatures may be missed", "sweeper": "heuristic on recent native-value top-level transactions only; cannot establish compromised key", "device_spyware": "not_detectable_from_wallet_address", "usd": "onchain-balance-verified + fresh contract-address quote when available; still partial and not guaranteed liquid"}, "disclaimer": "This is an incomplete read-only security screen. No warnings found DOES NOT mean safe. No keys, wallet connection or transactions requested."}
+    payload = {"address": address, "timestamp": int(time.time()), "version": "2.6.0-public-readonly", "chains": chains, "requested_chains": chosen, "summary": {"usd_known_sum": forensic["recognized_usd_partial"], "priced_usd_by_chain": forensic["priced_usd_by_chain"], "valuation_scope": "only_requested_scanned_chains; partial; independent_block_and_price_timestamps", "usd_unverified_excluded": forensic["excluded_unverified_usd_quotes"], "token_review_count": forensic["token_review_count"], "all_approvals_status": "UNKNOWN_INCOMPLETE", "usd_completeness": "partial_or_unknown", "active_approvals_discovered": approvals, "unlimited_approvals_discovered": unlimited, "sweeper_pattern_chains": flagged, "eip7702_delegation_chains": delegated, "rpc_unavailable_chains": unavailable, "risk_level": "investigate" if flagged else ("review_permissions" if unlimited else ("review_token_integrity" if forensic["token_review_count"] else "not_assessed")), "never_a_safety_clearance": True, "security_clearance": False, "audit_quality": "INCOMPLETE"}, "coverage": {"erc20_balances": "bounded_indexer_candidates_plus_curated_rpc_probes_at_block; not guaranteed complete", "approvals": "recent_wallet_transactions_and_bounded_events_only; older or unindexed approvals can be missed", "nft_operator": "recent_transaction_and_bounded_event_candidates; NFT holdings not comprehensive", "permit2": "partial recent onchain spender event discovery; older approvals and unsubmitted signatures may be missed", "sweeper": "heuristic on recent native-value top-level transactions only; cannot establish compromised key", "device_spyware": "not_detectable_from_wallet_address", "usd": "onchain-balance-verified + fresh contract-address quote when available; still partial and not guaranteed liquid"}, "disclaimer": "This is an incomplete read-only security screen. No warnings found DOES NOT mean safe. No keys, wallet connection or transactions requested."}
+    payload["asset_register"] = asset_register(chains)
     record_aggregate_scan()
     return payload
 

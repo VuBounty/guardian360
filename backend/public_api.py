@@ -10,12 +10,13 @@ import asyncio
 import os
 import time
 from collections import deque
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from main import ScanRequest, scan as internal_scan, available_chains
 
-app = FastAPI(title='Guardian 360 PUBLIC READ-ONLY API', version='2.5.0-public-beta',
+app = FastAPI(title='Guardian 360 PUBLIC READ-ONLY API', version='2.6.0-public-readonly',
               docs_url=None, redoc_url=None, openapi_url=None)
 allowed = [x.strip() for x in os.getenv('CORS_ORIGINS', 'https://vubounty.github.io').split(',') if x.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=allowed, allow_credentials=False,
@@ -40,10 +41,11 @@ async def admission() -> None:
 
 @app.get('/api/health')
 def public_health():
-    return {'ok':True,'service':'guardian360','version':'2.5.0-public-beta',
+    return {'ok':True,'service':'guardian360','version':'2.6.0-public-readonly',
             'mode':'PUBLIC_READ_ONLY','scan_enabled':enabled(),
             'revoke_endpoints':False,'wallet_signing':False,
-            'audit_coverage':'INCOMPLETE; no safety clearance'}
+            'audit_coverage':'INCOMPLETE; no safety clearance',
+            'release_id': Path(__file__).with_name('release_id.txt').read_text(encoding='utf-8').strip() if Path(__file__).with_name('release_id.txt').exists() else 'UNSTAMPED'}
 
 @app.get('/api/chains')
 def public_chains():

@@ -19,7 +19,9 @@ services:
       - key: GUARDIAN_PUBLIC_MAX_SCANS_PER_MINUTE
         value: "8"
       - key: MAX_TOKEN_PAGES
-        value: "1"
+        value: "8"
+      - key: GUARDIAN_MAX_INDEXED_CANDIDATES
+        value: "48"
       - key: MAX_TX_PAGES
         value: "1"
       - key: APPROVAL_LOG_LOOKBACK_BLOCKS
